@@ -1,0 +1,16 @@
+target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local build artifacts (NEI forbids these anyway)
+*.o
+*.so
+*.a
+*.dylib
+framework/__pycache__/

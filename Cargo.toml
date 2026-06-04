@@ -1,0 +1,47 @@
+[package]
+name = "nei_engine"
+version = "0.5.0"          # bumped from 0.4.x (Python) to 0.5.0 (Rust primary)
+edition = "2021"
+rust-version = "1.74"
+description = "NEI — Negative Entropy Injection Core. The runtime expression of Inverse Singularity Theory, in Rust."
+license = "MIT"
+repository = "https://github.com/ankinow/inverse-singularity"
+keywords = ["inverse-singularity", "constraint", "entropy", "agent", "sovereign"]
+categories = ["mathematics", "no-std", "embedded"]
+readme = "README.md"
+
+# ─────────────────────────────────────────────────────────────
+#  AXIOM 1 — Constraint Primacy
+#  AXIOM 2 — Density-Complexity Divergence
+#  AXIOM 3 — Collapse Mode Convergence
+#  AXIOM 4 — Sovereign Invariant
+#
+#  There is no [dependencies] section, and there never will be.
+#  Zero external crates. Zero features. Zero optional knobs.
+#
+#  The engine is a closed system by design. The axioms close
+#  the math; the math closes the dependency graph. To add a
+#  dependency is to betray the thesis.
+#
+#  See framework/MANIFESTO-LINGUAGEM.md for the philosophical
+#  statement of why "no default language" is itself the choice.
+# ─────────────────────────────────────────────────────────────
+
+[lib]
+name = "nei"
+path = "src/lib.rs"
+
+[[example]]
+name = "collapse"
+path = "examples/collapse.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"            # no unwind tables — Sovereign Invariant at the runtime layer
+
+[profile.dev]
+opt-level = 0
+debug = true

@@ -21,7 +21,8 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-teal?style=for-the-badge)](LICENSE)
 [![NEI Core](https://img.shields.io/badge/engine-NEI%20v4-amber?style=for-the-badge)](#-the-engine)
 [![axioms](https://img.shields.io/badge/axioms-4%20formal-crystal?style=for-the-badge)](#-the-axioms)
-[![zero deps](https://img.shields.io/badge/dependencies-zero-0a0a0a?style=for-the-badge)](#-sovereign-stack)
+|[![zero deps](https://img.shields.io/badge/dependencies-zero-0a0a0a?style=for-the-badge)](#-sovereign-stack)
+[![rust primary](https://img.shields.io/badge/runtime-Rust%20%2B%20Python%20(ref)-c97a4a?style=for-the-badge)](#-the-engine)
 [![sovereign](https://img.shields.io/badge/sovereign%20layer-active-8b0000?style=for-the-badge)](#-sovereign-layer)
 [![origin](https://img.shields.io/badge/origin-Singularidade%20Inversa-blueviolet?style=for-the-badge)](#-origin)
 
@@ -97,12 +98,30 @@ The entire NEI engine is an exercise in keeping that ratio in your favor.
 
 ## ✦ The Engine
 
-`framework/nei_engine.py` — **29 lines, zero dependencies, pure Python.**
+The runtime is the load-bearing artifact of the framework. There are
+two implementations of the same math:
+
+| Edition | Path | Role | Lines |
+|:--------|:-----|:-----|------:|
+| **Rust (primary)**  | `src/lib.rs` + `examples/collapse.rs` | Operational expression of the axioms at the type and runtime layer. | ~280 |
+| **Python (reference)** | `framework/nei_engine.py` | Didactic expression. Kept for legibility and as a fingerprint for the Rust port. | 47 |
+
+Both must produce identical scalar outputs (ψ, φ, ∇, Q). They are
+fingerprints of each other; neither is "the truth." The axioms are
+the truth; both files are the proofs.
 
 ```bash
-$ python3 framework/nei_engine.py
+# Rust (primary, no internet required at install time)
+cargo run --example collapse
 
-   NEI Engine v4 — Constraint-Driven Intelligence Amplification
+# Python (reference)
+python3 framework/nei_engine.py
+```
+
+Both print the same four lines:
+
+```
+   NEI Engine v5 — Constraint-Driven Intelligence Amplification
    ────────────────────────────────────────────────────────────
    In 7 days:
      φ(d)         = 0.85      conceptual density
@@ -112,8 +131,16 @@ $ python3 framework/nei_engine.py
    "The cage is the cathedral."
 ```
 
-*No numpy. No torch. No requests. No exceptions.*
-The engine is small because **the axioms are small**. Bloat would be a confession that the theory isn't load-bearing.
+*No `unsafe` in Rust. No numpy in Python. No requests. No exceptions.*
+The engine is small because **the axioms are small**. Bloat would be
+a confession that the theory isn't load-bearing.
+
+> *Why Rust as primary? Why keep Python at all?*
+> See `framework/MANIFESTO-LINGUAGEM.md` for the full statement of
+> virtue: there is no default language, only the question of which
+> language, here, now, expresses the four axioms most directly — and
+> is willing to refuse to add a dependency in order to keep the
+> answer true.
 
 ---
 
@@ -148,9 +175,16 @@ inverse-singularity/
 │   ├── ist_axioms.tex            ── 4 formal axioms, LaTeX
 │   └── ist_distill_paper.md      ── 1-page distill paper (3 equations)
 │
-├── framework/                    ── NEI Core runtime
-│   ├── nei_engine.py             ── 29-line engine, zero deps, MIT
+├── framework/                    ── NEI Core runtime (Python reference layer)
+│   ├── nei_engine.py             ── Python reference (47 lines, 0 deps, MIT)
+│   ├── MANIFESTO-LINGUAGEM.md    ── Why Rust, why not "Rust by default" (virtue, not rule)
 │   └── collapse_mode.md          ── 7-day sprint methodology
+│
+├── src/                          ── Rust primary runtime
+│   └── lib.rs                    ── NEI engine in Rust (~280 lines, 0 external crates)
+├── examples/                     ── Rust runnable demos
+│   └── collapse.rs               ── 7-day collapse demo (mirror of the Python reference)
+├── Cargo.toml                    ── Rust workspace (zero deps, edition 2021, panic=abort)
 │
 ├── papers/                       ── External validation, references
 ├── LICENSE                       ── MIT
@@ -207,11 +241,17 @@ thesis, but stripped to the load-bearing structure.
 git clone https://github.com/ankinow/inverse-singularity.git
 cd inverse-singularity
 
-# Run the runtime
+# Run the runtime (Rust primary)
+cargo run --example collapse
+
+# Run the reference (Python, didactic)
 python3 framework/nei_engine.py
 
 # Read the thesis
 cat theory/ist_manifesto.md
+
+# Read the language statement (why Rust, why not "Rust by default")
+cat framework/MANIFESTO-LINGUAGEM.md
 
 # Study the axioms (requires pdflatex)
 cd theory && pdflatex ist_axioms.tex
@@ -225,7 +265,7 @@ That is the entire install. **There is no other step.**
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Engine         ████████████████████  v4 · 29 lines · 0 deps           │
+│  Engine         ████████████████████  v5 · Rust + Python · 0 deps        │
 │  Axioms         ████████████████████  4/4 formalized (LaTeX)            │
 │  Manifesto      ████████████████████  pt-BR + EN, in repo               │
 │  Sovereign      ████████████████████  A4 enforced at runtime            │

@@ -1,4 +1,18 @@
-"""NEI Engine - Negative Entropy Injection Core (Math-Only, <60 lines)"""
+"""NEI Engine - Negative Entropy Injection Core (Math-Only, <60 lines)
+
+PRIMARY RUNTIME: Rust (`src/lib.rs`, see `Cargo.toml`).
+THIS FILE: the Python reference. Kept for didactic reasons and as a
+fingerprint for the Rust port — both implementations MUST produce
+identical scalar outputs.
+
+There is no default language. Rust is the current expression of the
+four NEI axioms at the type and runtime layer. Python is the
+expression at the didactic layer. Neither is "the truth." The axioms
+are the truth; both files are the fingerprints.
+
+See `framework/MANIFESTO-LINGUAGEM.md` for the full statement of
+virtue. See `src/lib.rs` for the Rust primary.
+"""
 import math
 
 psi = lambda x, c: x / (1 + c * x)    # ψ: Constraint function
