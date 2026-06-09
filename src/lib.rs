@@ -217,6 +217,7 @@ impl Default for NEI {
 
 /// One step of the collapse simulation.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Step {
     /// `Q = density / (complexity + ε)`
     pub quality: f64,
@@ -230,6 +231,7 @@ pub struct Step {
 
 /// Result of `NEI::constraint_audit` — a four-axis compliance record.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Audit {
     /// `tool_count ≤ 3`
     pub tool_compliance:   bool,
@@ -245,6 +247,7 @@ pub struct Audit {
 
 /// Result of `NEI::audit` — the four-axiom self-report.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SelfAudit {
     /// `mean(axiom booleans)` ∈ [0, 1]
     pub sovereign_score:  f64,

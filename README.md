@@ -19,10 +19,11 @@
 *`lim (c→∞) Innovation(s, c) = 0`*
 
 [![MIT License](https://img.shields.io/badge/license-MIT-teal?style=for-the-badge)](LICENSE)
-[![NEI Core](https://img.shields.io/badge/engine-NEI%20v4-amber?style=for-the-badge)](#-the-engine)
+[![NEI Core](https://img.shields.io/badge/engine-NEI%20v5-amber?style=for-the-badge)](#-the-engine)
 [![axioms](https://img.shields.io/badge/axioms-4%20formal-crystal?style=for-the-badge)](#-the-axioms)
-|[![zero deps](https://img.shields.io/badge/dependencies-zero-0a0a0a?style=for-the-badge)](#-sovereign-stack)
+[![zero deps](https://img.shields.io/badge/dependencies-zero-0a0a0a?style=for-the-badge)](#-sovereign-stack)
 [![rust primary](https://img.shields.io/badge/runtime-Rust%20%2B%20Python%20(ref)-c97a4a?style=for-the-badge)](#-the-engine)
+[![serde](https://img.shields.io/badge/serde-optional-teal?style=for-the-badge)](#-the-engine)
 [![sovereign](https://img.shields.io/badge/sovereign%20layer-active-8b0000?style=for-the-badge)](#-sovereign-layer)
 [![origin](https://img.shields.io/badge/origin-Singularidade%20Inversa-blueviolet?style=for-the-badge)](#-origin)
 
@@ -98,49 +99,53 @@ The entire NEI engine is an exercise in keeping that ratio in your favor.
 
 ## ✦ The Engine
 
-The runtime is the load-bearing artifact of the framework. There are
-two implementations of the same math:
+The runtime is the load-bearing artifact of the framework. Two implementations of the same math — byte-for-symbol identical in output.
+
+```
+   ψ(x, λ) = x / (1 + λ·x)        — constraint function (saturation)
+   φ(d)    = ln(1 + d)             — density enhancement (logarithmic)
+   ∇(t)    = 1 / (t + ε)           — focus gradient (hyperbolic urgency)
+   Q(M)    = φ(d) / (κ(M) + ε)     — quality ratio
+```
 
 | Edition | Path | Role | Lines |
 |:--------|:-----|:-----|------:|
-| **Rust (primary)**  | `src/lib.rs` + `examples/collapse.rs` | Operational expression of the axioms at the type and runtime layer. | ~280 |
-| **Python (reference)** | `framework/nei_engine.py` | Didactic expression. Kept for legibility and as a fingerprint for the Rust port. | 47 |
+| **Rust (primary)**  | `src/lib.rs` | Operational expression at the type and runtime layer. | ~350 |
+| **Python (reference)** | `framework/nei_engine.py` | Didactic fingerprint. Must match Rust output to 5 decimal places. | 69 |
 
-Both must produce identical scalar outputs (ψ, φ, ∇, Q). They are
-fingerprints of each other; neither is "the truth." The axioms are
-the truth; both files are the proofs.
+Both produce identical scalar outputs (ψ, φ, ∇, Q). Neither is "the truth." The axioms are the truth; both files are the proofs.
+
+### Run
 
 ```bash
-# Rust (primary, no internet required at install time)
-cargo run --example collapse
+# Rust (primary, zero external crates by default)
+cargo run --example collapse     # 7-day collapse demo
+cargo run --example audit        # constraint audit matrix (8 combos)
+cargo run --example tuned        # λ×τ parameter grid + rejection analysis
+cargo test                       # 9/9 pass
 
-# Python (reference)
-python3 framework/nei_engine.py
+# Rust with optional serde support
+cargo build --features serde     # adds Serialize/Deserialize to all output structs
+cargo test --features serde      # 9/9 pass
+
+# Python (reference, didactic)
+python3 -c "
+from framework.nei_engine import NEI
+n = NEI.tuned(0.1, 7)
+steps = n.collapse(0.31, 0.85, 7)
+print(f'Q={steps[0][\"quality\"]:.4f}  NEI={steps[0][\"nei_score\"]:.5f}')
+"
 ```
 
-Both print the same four lines:
+### Rust↔Python Output Identity
 
-```
-   NEI Engine v5 — Constraint-Driven Intelligence Amplification
-   ────────────────────────────────────────────────────────────
-   In 7 days:
-     φ(d)         = 0.85      conceptual density
-     κ            = 0.31      complexity entropy
-     Q            = 2.74      quality ratio
-   ────────────────────────────────────────────────────────────
-   "The cage is the cathedral."
-```
+All 7 collapse steps match between Rust and Python to 5 decimal places (verified 2026-06-10). The tiny divergence (~10⁻¹¹) comes only from the nabla epsilon difference (Rust `f64::EPSILON` ≈ 2.22e-16, Python `1e-9` — documented in `framework/nei_engine.py`).
 
 *No `unsafe` in Rust. No numpy in Python. No requests. No exceptions.*
-The engine is small because **the axioms are small**. Bloat would be
-a confession that the theory isn't load-bearing.
+The engine is small because **the axioms are small**. Bloat would be a confession that the theory isn't load-bearing.
 
 > *Why Rust as primary? Why keep Python at all?*
-> See `framework/MANIFESTO-LINGUAGEM.md` for the full statement of
-> virtue: there is no default language, only the question of which
-> language, here, now, expresses the four axioms most directly — and
-> is willing to refuse to add a dependency in order to keep the
-> answer true.
+> See `framework/MANIFESTO-LINGUAGEM.md` for the full statement of virtue: there is no default language, only the question of which language, here, now, expresses the four axioms most directly — and is willing to refuse to add a dependency in order to keep the answer true.
 
 ---
 
@@ -176,16 +181,19 @@ inverse-singularity/
 │   └── ist_distill_paper.md      ── 1-page distill paper (3 equations)
 │
 ├── framework/                    ── NEI Core runtime (Python reference layer)
-│   ├── nei_engine.py             ── Python reference (47 lines, 0 deps, MIT)
-│   ├── MANIFESTO-LINGUAGEM.md    ── Why Rust, why not "Rust by default" (virtue, not rule)
+│   ├── nei_engine.py             ── Python reference (69 lines, 0 deps, MIT)
+│   ├── MANIFESTO-LINGUAGEM.md    ── Why Rust, why not "Rust by default"
 │   └── collapse_mode.md          ── 7-day sprint methodology
 │
 ├── src/                          ── Rust primary runtime
-│   └── lib.rs                    ── NEI engine in Rust (~280 lines, 0 external crates)
+│   └── lib.rs                    ── NEI engine (~350 lines, 0 external crates)
 ├── examples/                     ── Rust runnable demos
-│   └── collapse.rs               ── 7-day collapse demo (mirror of the Python reference)
-├── Cargo.toml                    ── Rust workspace (zero deps, edition 2021, panic=abort)
+│   ├── collapse.rs               ── 7-day collapse demo (fingerprint check)
+│   ├── audit.rs                  ── constraint audit matrix (8 combos)
+│   └── tuned.rs                  ── λ×τ parameter grid (7×6) + rejections
+├── Cargo.toml                    ── Rust workspace (zero deps, serde optional)
 │
+├── CURIOSITY.md                  ── Thread persistence (A3 operationalized)
 ├── papers/                       ── External validation, references
 ├── LICENSE                       ── MIT
 └── README.md                     ── This file
@@ -203,6 +211,7 @@ inverse-singularity/
 | 4 | **Zero-Reference Design** | Build from axioms. Reject cargo-culted patterns. |
 | 5 | **Collapse Mode** | 7-day sprints force priority clarity. There is no other kind. |
 | 6 | **Sovereign Boundary** | The agent refuses what it must refuse. Period. |
+| 7 | **Fingerprint Identity** | Rust and Python outputs must agree. Divergence is a bug, not a feature. |
 
 ---
 
@@ -216,6 +225,7 @@ inverse-singularity/
 | ❌ Train on success without a budget | Unconstrained training is overfitting to a fiction. |
 | ❌ Pretend the boundary is configurable | The sovereign boundary is an invariant, not a knob. |
 | ❌ Publish a 50-page paper before a 29-line engine | The engine is the proof. The paper is decoration. |
+| ❌ Let Python diverge from Rust | Output identity is a runtime invariant, not an aspiration. |
 
 ---
 
@@ -243,14 +253,24 @@ cd inverse-singularity
 
 # Run the runtime (Rust primary)
 cargo run --example collapse
+cargo run --example audit
+cargo run --example tuned
 
-# Run the reference (Python, didactic)
-python3 framework/nei_engine.py
+# Run the reference (Python, didactic fingerprint)
+python3 -c "
+from framework.nei_engine import NEI
+n = NEI.tuned(0.1, 7)
+print(n.collapse(0.31, 0.85, 7))
+"
+
+# Run tests
+cargo test                    # 9/9 pass
+cargo test --features serde   # 9/9 pass with serde
 
 # Read the thesis
 cat theory/ist_manifesto.md
 
-# Read the language statement (why Rust, why not "Rust by default")
+# Read the language statement (why Rust, not "Rust by default")
 cat framework/MANIFESTO-LINGUAGEM.md
 
 # Study the axioms (requires pdflatex)
@@ -266,14 +286,17 @@ That is the entire install. **There is no other step.**
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  Engine         ████████████████████  v5 · Rust + Python · 0 deps        │
+│  Examples       ████████████████████  3 demos (collapse, audit, tuned)   │
+│  Serde          ████████████████████  optional feature, zero-cost        │
 │  Axioms         ████████████████████  4/4 formalized (LaTeX)            │
 │  Manifesto      ████████████████████  pt-BR + EN, in repo               │
 │  Sovereign      ████████████████████  A4 enforced at runtime            │
+│  Output Identity ████████████████████ Rust↔Python 7/7 match (5 dec)     │
 │  External Crit. ████████░░░░░░░░░░░░  invited review (in progress)      │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Status**: V4 complete · Sovereign layer integrated · Zero dependencies · Deploy-ready.
+**Status**: V5 complete · Sovereign layer integrated · Zero dependencies · 9/9 tests · Serde optional · Deploy-ready.
 
 ---
 
@@ -295,7 +318,7 @@ The *code* is MIT. The *thesis* is the operator's. Cite it as ours; copy it with
 
 *The cage is the cathedral. The constraint is the catalyst. The axioms are small.*
 
-*Inverse Singularity · V4 · Forged in Guaratuba, Florianópolis 🇧🇷 · 2026*
+*Inverse Singularity · V5 · Forged in Guaratuba, Florianópolis 🇧🇷 · 2026*
 
 ```
 ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·

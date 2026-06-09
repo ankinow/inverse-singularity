@@ -16,15 +16,21 @@ readme = "README.md"
 #  AXIOM 3 — Collapse Mode Convergence
 #  AXIOM 4 — Sovereign Invariant
 #
-#  There is no [dependencies] section, and there never will be.
-#  Zero external crates. Zero features. Zero optional knobs.
-#
-#  The engine is a closed system by design. The axioms close
-#  the math; the math closes the dependency graph. To add a
-#  dependency is to betray the thesis.
-#
-#  See framework/MANIFESTO-LINGUAGEM.md for the philosophical
-#  statement of why "no default language" is itself the choice.
+# ─────────────────────────────────────────────────────────────
+#  Dependencies (optional only — zero non-dev deps when not
+#  requested). `serde` is gated behind the `serde` feature and
+#  is the ONLY optional dependency allowed by the axioms. It
+#  exists for downstream tooling that needs to serialize NEI
+#  records; the core engine compiles without it.
+# ─────────────────────────────────────────────────────────────
+
+[dependencies]
+serde = { version = "1", features = ["derive"], optional = true }
+
+[features]
+default = []
+serde = ["dep:serde"]
+
 # ─────────────────────────────────────────────────────────────
 
 [lib]
@@ -34,6 +40,14 @@ path = "src/lib.rs"
 [[example]]
 name = "collapse"
 path = "examples/collapse.rs"
+
+[[example]]
+name = "audit"
+path = "examples/audit.rs"
+
+[[example]]
+name = "tuned"
+path = "examples/tuned.rs"
 
 [profile.release]
 opt-level = 3
