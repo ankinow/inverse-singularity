@@ -55,7 +55,7 @@ Added in this repo:
 framework/hermes_nei_adapter.py      → zero-dependency reference adapter
 examples/hermes_adapter.py           → smoke example
 integrations/hermes/SOUL_PRESERVATION.md
-integrations/hermes/adapter_manifest.json
+integrations/hermes/ADAPTER_MANIFEST.md
 ```
 
 The adapter is intentionally reference-grade. It does not replace Hermes; it
