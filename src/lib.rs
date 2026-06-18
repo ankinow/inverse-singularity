@@ -1,4 +1,4 @@
-//! NEI — Negative Entropy Injection Core
+//! IST — Imposition-Guided Selection Engine
 //! =================================================================
 //! Rust primary expression of Inverse Singularity Theory.
 //!
@@ -22,7 +22,7 @@
 // `collapse` function returns a `Vec<Step>`, and the cost of pulling
 // in `extern crate alloc` + a heap backend is higher than the cost of
 // a `std` link for a runtime this small. A future no_std expression
-// of NEI can return an iterator instead; that is left as a port, not
+// of IST can return an iterator instead; that is left as a port, not
 // a refactor (see framework/MANIFESTO-LINGUAGEM.md, §5).
 
 // ────────────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@
 /// `ψ(x, λ) = x / (1 + λ·x)`
 ///
 /// As the constraint λ grows, the function saturates: input keeps
-/// arriving, output is throttled. This is the *negative* entropy:
+/// arriving, output is throttled. This is the imposition:
 /// each unit of input buys less of the system.
 #[inline]
 #[must_use]
@@ -47,7 +47,7 @@ pub fn psi(x: f64, lambda: f64) -> f64 {
 /// `φ(d) = ln(1 + d)`
 ///
 /// Logarithmic growth: the first ideas cost nothing; the next
-/// thousand cost a lot. This is the *positive* entropy axis:
+/// thousand cost a lot. This is the creative axis:
 /// each new idea must clear an increasing bar to matter.
 #[inline]
 #[must_use]
@@ -68,10 +68,10 @@ pub fn nabla(t: f64) -> f64 {
 }
 
 // ────────────────────────────────────────────────────────────────
-//   §2 — The NEI struct
+//   §2 — The IST struct
 // ────────────────────────────────────────────────────────────────
 
-/// A NEI instance is a single ticking agent.
+/// An IST instance is a single ticking agent.
 ///
 /// It owns three numbers:
 /// - `lambda` (λ): the strength of the constraint (default 0.1)
@@ -80,7 +80,7 @@ pub fn nabla(t: f64) -> f64 {
 ///
 /// And one boolean: `sovereign_mode`, the A4 invariant.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct NEI {
+pub struct IST {
     /// λ — the strength of the constraint applied to every input.
     pub lambda: f64,
     /// τ — the deadline horizon. After this many steps the focus
@@ -94,7 +94,7 @@ pub struct NEI {
     pub sovereign_mode: bool,
 }
 
-impl NEI {
+impl IST {
     /// The four proactive questions of the Sovereign Layer.
     ///
     /// Each one is a *check* the agent must pass before committing an
@@ -133,7 +133,7 @@ impl NEI {
     }
 
     /// Inject complexity `c` and density `d` through the three
-    /// primitive transformations, then return the scalar NEI score.
+    /// primitive transformations, then return the scalar IST score.
     #[inline]
     #[must_use]
     pub fn inject(&self, c: f64, d: f64) -> f64 {
@@ -142,7 +142,7 @@ impl NEI {
     }
 
     /// Evolve the agent by one step. `state` is a `(complexity, density)`
-    /// pair; the returned `Step` records the resulting Q, NEI score,
+    /// pair; the returned `Step` records the resulting Q, IST score,
     /// urgency, and the new step index.
     pub fn evolve(&mut self, complexity: f64, density: f64) -> Step {
         self.t = (self.t + 1) % self.tau;
@@ -162,7 +162,7 @@ impl NEI {
         out
     }
 
-    /// Audit an external system against the four NEI hard limits.
+    /// Audit an external system against the four IST hard limits.
     /// Returns an `Audit` record with per-axis compliance + a score.
     pub fn constraint_audit(&self, tool_count: u32, dep_count: u32, memory_bytes: u64) -> Audit {
         const MAX_TOOLS:   u32 = 3;
@@ -186,7 +186,7 @@ impl NEI {
         }
     }
 
-    /// Self-audit: does this NEI instance satisfy the four axioms
+    /// Self-audit: does this IST instance satisfy the four axioms
     /// as a runtime invariant? Returns a `SelfAudit` record.
     pub fn audit(&self) -> SelfAudit {
         // A1: lambda ≥ 0 (a non-negative constraint always exists)
@@ -207,7 +207,7 @@ impl NEI {
     }
 }
 
-impl Default for NEI {
+impl Default for IST {
     fn default() -> Self { Self::new() }
 }
 
@@ -221,7 +221,7 @@ impl Default for NEI {
 pub struct Step {
     /// `Q = density / (complexity + ε)`
     pub quality: f64,
-    /// The scalar NEI score, after the three transformations.
+    /// The scalar IST score, after the three transformations.
     pub nei_score: f64,
     /// `1 − t/τ` — the fraction of the deadline that remains.
     pub urgency: f64,
@@ -229,7 +229,7 @@ pub struct Step {
     pub t: u32,
 }
 
-/// Result of `NEI::constraint_audit` — a four-axis compliance record.
+/// Result of `IST::constraint_audit` — a four-axis compliance record.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Audit {
@@ -245,7 +245,7 @@ pub struct Audit {
     pub score: f64,
 }
 
-/// Result of `NEI::audit` — the four-axiom self-report.
+/// Result of `IST::audit` — the four-axiom self-report.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SelfAudit {
@@ -286,7 +286,7 @@ mod tests {
 
     #[test]
     fn nei_default_round_trips() {
-        let mut n = NEI::new();
+        let mut n = IST::new();
         assert_eq!(n.tau, 7);
         assert_eq!(n.t, 0);
         let s1 = n.evolve(0.5, 0.85);
@@ -298,14 +298,14 @@ mod tests {
 
     #[test]
     fn tuned_rejects_zero_tau() {
-        assert!(NEI::tuned(0.1, 0).is_none());
-        assert!(NEI::tuned(0.1, 7).is_some());
-        assert!(NEI::tuned(-0.1, 7).is_none());
+        assert!(IST::tuned(0.1, 0).is_none());
+        assert!(IST::tuned(0.1, 7).is_some());
+        assert!(IST::tuned(-0.1, 7).is_none());
     }
 
     #[test]
     fn audit_fails_when_dependencies_present() {
-        let n = NEI::new();
+        let n = IST::new();
         let a = n.constraint_audit(2, 1, 1024);
         assert!(a.tool_compliance);
         assert!(!a.dep_compliance);
@@ -314,7 +314,7 @@ mod tests {
 
     #[test]
     fn audit_passes_when_fully_constrained() {
-        let n = NEI::new();
+        let n = IST::new();
         let a = n.constraint_audit(2, 0, 1024);
         assert!(a.tool_compliance);
         assert!(a.dep_compliance);
@@ -323,14 +323,14 @@ mod tests {
 
     #[test]
     fn self_audit_full_compliance() {
-        let n = NEI::new();
+        let n = IST::new();
         let a = n.audit();
         assert_eq!(a.sovereign_score, 1.0);
     }
 
     #[test]
     fn collapse_returns_correct_step_count() {
-        let mut n = NEI::new();
+        let mut n = IST::new();
         let steps = n.collapse(0.5, 0.85, 7);
         assert_eq!(steps.len(), 7);
         // Quality is invariant across steps (same c, d).

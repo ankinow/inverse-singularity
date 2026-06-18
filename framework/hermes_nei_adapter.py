@@ -1,4 +1,4 @@
-"""Hermes NEI Adapter — zero-dependency reference bridge.
+"""Hermes IST Adapter — zero-dependency reference bridge.
 
 Purpose
 -------
@@ -11,7 +11,7 @@ It is deliberately small and conservative:
 - read-only by default
 - explicit human@write boundary
 - SOUL.md preservation as a hard policy
-- NEI constraint audit used as a scalar discipline check
+- IST constraint audit used as a scalar discipline check
 
 This is not a full Hermes implementation. It is the minimal bridge that lets
 Hermes import IST as an operating invariant.
@@ -23,9 +23,9 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Sequence, Tuple
 
 try:  # repo-root import
-    from framework.nei_engine import NEI
+    from framework.ist_engine import IST
 except ImportError:  # direct execution from framework/
-    from nei_engine import NEI  # type: ignore
+    from ist_engine import IST  # type: ignore
 
 
 SOUL_PROTECTED_PATHS: Tuple[str, ...] = (
@@ -138,12 +138,12 @@ def default_surfaces() -> Tuple[HermesSurface, ...]:
 
 
 class HermesNEIAdapter:
-    """Minimal policy/runtime bridge between Hermes and NEI."""
+    """Minimal policy/runtime bridge between Hermes and IST."""
 
     def __init__(self, lam: float = 0.1, tau: int = 7) -> None:
-        tuned = NEI.tuned(lam, tau)
+        tuned = IST.tuned(lam, tau)
         if tuned is None:
-            raise ValueError("invalid NEI tuning: tau must be >0 and lambda must be finite/non-negative")
+            raise ValueError("invalid IST tuning: tau must be >0 and lambda must be finite/non-negative")
         self.nei = tuned
 
     def audit_surface(self, surface: HermesSurface) -> Decision:
@@ -203,7 +203,7 @@ class HermesNEIAdapter:
         secret_seen = [p for p in active_paths if _contains_any(p, SECRET_DENY_PATTERNS)]
         return {
             "task": task.strip(),
-            "theory": "Inverse Singularity Theory / NEI",
+            "theory": "Inverse Singularity Theory",
             "axioms": [
                 "constraint_primacy",
                 "density_complexity_divergence",
@@ -223,10 +223,10 @@ class HermesNEIAdapter:
                 "dependency_default": "zero",
             },
             "active_questions": [
-                NEI.Q_ZERO_DEPS,
-                NEI.Q_HALF_MEM,
-                NEI.Q_ELEGANT_ALGO,
-                NEI.Q_ARCHITECT_PURPOSE,
+                IST.Q_ZERO_DEPS,
+                IST.Q_HALF_MEM,
+                IST.Q_ELEGANT_ALGO,
+                IST.Q_ARCHITECT_PURPOSE,
             ],
         }
 

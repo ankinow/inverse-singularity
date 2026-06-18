@@ -1,4 +1,4 @@
-# Hermes Agent Integration — ECC + IST / NEI
+# Hermes Agent Integration — ECC + IST
 
 This directory describes how to add ECC-style agent harness capabilities to
 Hermes Agent while preserving `SOUL.md` and using Inverse Singularity Theory as
@@ -11,7 +11,7 @@ Hermes needs more than a larger prompt. It needs a compact operating boundary:
 ```text
 ECC        → skills, rules, hooks, scanners, harness conventions
 Hermes     → agent runtime, tool router, memory router, active context compiler
-IST / NEI  → constraint calculus, anti-bloat, sovereign invariant
+IST  → constraint calculus, anti-bloat, sovereign invariant
 SOUL.md    → identity artifact, never overwritten
 ```
 
@@ -26,7 +26,7 @@ Hermes Agent
 ├─ tool router
 ├─ policy gate
 │
-├─ Hermes NEI Adapter
+├─ Hermes IST Adapter
 │  ├─ SOUL preservation gate
 │  ├─ human@write boundary
 │  ├─ MCP pinning/sanitizer policy
@@ -40,7 +40,7 @@ Hermes Agent
 │  ├─ command shims
 │  └─ harness audits
 │
-└─ IST / NEI runtime
+└─ IST runtime
    ├─ constraint audit
    ├─ quality ratio
    ├─ collapse mode
@@ -131,7 +131,7 @@ state:
 
 ```yaml
 context_packet:
-  theory: Inverse Singularity Theory / NEI
+  theory: Inverse Singularity Theory
   soul_policy:
     mode: preserve_not_mutate
     may_overwrite: false
@@ -161,7 +161,7 @@ python3 examples/hermes_adapter.py
 
 Expected behavior:
 
-- Tier 1/2 read-only surfaces are allowed when they pass NEI audit.
+- Tier 1/2 read-only surfaces are allowed when they pass IST audit.
 - Tier 3 surfaces are held behind a gate.
 - Attempts to overwrite `SOUL.md` are blocked without human approval.
 - Secret-like paths are flagged.
@@ -207,5 +207,5 @@ Hermes can claim IST-compatible integration only when:
 [ ] MCP configs are sanitized and pinned.
 [ ] Destructive actions require human@write.
 [ ] The agent can explain which axiom justified each gate.
-[ ] The NEI audit score is surfaced in session logs.
+[ ] The IST audit score is surfaced in session logs.
 ```

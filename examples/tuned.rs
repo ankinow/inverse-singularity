@@ -1,12 +1,12 @@
-//! `cargo run --example tuned` — `NEI::tuned()` constructor demo.
+//! `cargo run --example tuned` — `IST::tuned()` constructor demo.
 //!
 //! Shows which (λ, τ) pairs produce a valid agent and how the
-//! resulting NEI score surface behaves across different constraints.
+//! resulting IST score surface behaves across different constraints.
 
-use nei::NEI;
+use ist::IST;
 
 fn main() {
-    println!("NEI Tuned Constructor — (λ, τ) Grid");
+    println!("IST Tuned Constructor — (λ, τ) Grid");
     println!("──────────────────────────────────────");
     println!("τ must be ≥ 1. λ must be finite and ≥ 0.");
     println!();
@@ -21,7 +21,7 @@ fn main() {
     for &lambda in lambdas {
         print!("  {:>8.3} ", lambda);
         for &tau in taus {
-            match NEI::tuned(lambda, tau) {
+            match IST::tuned(lambda, tau) {
                 Some(agent) => {
                     // Inject a canonical (c=0.5, d=0.85) pair to sample
                     // the score surface.
@@ -47,7 +47,7 @@ fn main() {
         (f64::NAN, 7, "NaN λ"),
         (f64::INFINITY, 7, "infinite λ"),
     ] {
-        let result = NEI::tuned(*lambda, *tau);
+        let result = IST::tuned(*lambda, *tau);
         println!(
             "  tuned(λ={}, τ={}) -> {}  // {}",
             lambda, tau,
@@ -59,19 +59,19 @@ fn main() {
     println!();
     println!("--- Score surface along τ axis (λ=0.1) ---");
     for tau in 1..=10 {
-        let agent = NEI::tuned(0.1, tau).unwrap();
+        let agent = IST::tuned(0.1, tau).unwrap();
         let s = agent.inject(0.5, 0.85);
-        println!("  τ={:>2}  NEI={:.5}  urgency(t=0)={:.4}", tau, s, 1.0 / (tau as f64 + f64::EPSILON));
+        println!("  τ={:>2}  IST={:.5}  urgency(t=0)={:.4}", tau, s, 1.0 / (tau as f64 + f64::EPSILON));
     }
 
     println!();
     println!("--- Score surface along λ axis (τ=7) ---");
     for lambda in [0.0, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0] {
-        let agent = NEI::tuned(lambda, 7).unwrap();
+        let agent = IST::tuned(lambda, 7).unwrap();
         let c = 0.5;
         let psi_val = c / (1.0 + lambda * c);
         let s = agent.inject(c, 0.85);
-        println!("  λ={:>5.2}  ψ(c)={:.5}  NEI={:.5}", lambda, psi_val, s);
+        println!("  λ={:>5.2}  ψ(c)={:.5}  IST={:.5}", lambda, psi_val, s);
     }
 
     println!();

@@ -32,7 +32,7 @@ $$
 \end{aligned}
 $$
 
-The NEI score at step $t$: $\quad NEI_t = \psi(c, \lambda) \cdot \phi(d) \cdot \nabla(\tau, t)$
+The IST score at step $t$: $\quad IST_t = \psi(c, \lambda) \cdot \phi(d) \cdot \nabla(\tau, t)$
 
 ---
 
@@ -78,7 +78,7 @@ TIER 1  │  AXIOM           "four lines of math, infinite meaning"
 
 A system with zero external dependencies, bounded memory (50MB), and a 7-day collapse horizon will, at each cycle boundary, produce a model with strictly higher $Q$ than an unbounded system given identical initial $\phi(d)$.
 
-**Test**: compare NEI scores of constrained vs. unconstrained agents over $N$ collapse cycles. Hypothesis: $\Delta Q > 0$ for constrained agent at every $t \in \{1, ..., \tau\}$.
+**Test**: compare IST scores of constrained vs. unconstrained agents over $N$ collapse cycles. Hypothesis: $\Delta Q > 0$ for constrained agent at every $t \in \{1, ..., \tau\}$.
 
 ---
 

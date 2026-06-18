@@ -1,4 +1,4 @@
-"""NEI Engine - Negative Entropy Injection Core (Math-Only, <70 lines)
+"""IST Engine - Imposition-Guided Selection (Math-Only, <70 lines)
 
 PRIMARY RUNTIME: Rust (`src/lib.rs`, see `Cargo.toml`).
 THIS FILE: the Python reference. Kept for didactic reasons and as a
@@ -6,7 +6,7 @@ fingerprint for the Rust port — both implementations MUST produce
 identical scalar outputs.
 
 There is no default language. Rust is the current expression of the
-four NEI axioms at the type and runtime layer. Python is the
+four IST axioms at the type and runtime layer. Python is the
 expression at the didactic layer. Neither is "the truth." The axioms
 are the truth; both files are the fingerprints.
 
@@ -23,7 +23,7 @@ psi = lambda x, c: x / (1 + c * x)           # ψ: Constraint function
 phi = lambda d: math.log(1 + d)              # φ: Density enhancement
 nabla = lambda t: 1 / (t + 1e-9)             # ∇: Focus gradient (ε differs from Rust)
 
-class NEI:
+class IST:
     Q_ZERO_DEPS = "Can I do this with zero external deps?"
     Q_HALF_MEM = "Can I achieve the result with 50% less memory?"
     Q_ELEGANT_ALGO = "Is there an elegant algorithm that makes brute force obsolete?"

@@ -7,14 +7,14 @@ Mode: `read-only by default`
 ## Purpose
 
 This manifest defines the safe integration contract between Hermes Agent,
-ECC-style harness capabilities, and Inverse Singularity Theory / NEI.
+ECC-style harness capabilities, and Inverse Singularity Theory.
 
 It is intentionally non-executable. Hermes implementations may translate it
 into runtime configuration, but this file itself must remain documentation.
 
 ## Source Theory
 
-- Inverse Singularity Theory / NEI
+- Inverse Singularity Theory
 - A1: Constraint Primacy
 - A2: Density-Complexity Divergence
 - A3: Collapse Mode Convergence

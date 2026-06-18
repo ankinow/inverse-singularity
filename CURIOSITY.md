@@ -1,4 +1,4 @@
-# CURIOSITY.md — Open Threads (NEI Thread Persistence)
+# CURIOSITY.md — Open Threads (IST Thread Persistence)
 
 This file tracks open intellectual threads across sessions. Read it at the start of every main session. Update it when something genuinely unresolved surfaces in conversation.
 

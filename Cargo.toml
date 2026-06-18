@@ -1,12 +1,12 @@
 [package]
-name = "nei_engine"
-version = "0.5.0"          # bumped from 0.4.x (Python) to 0.5.0 (Rust primary)
+name = "ist_engine"
+version = "0.6.0"          # bumped from 0.4.x (Python) to 0.5.0 (Rust primary)
 edition = "2021"
 rust-version = "1.74"
-description = "NEI — Negative Entropy Injection Core. The runtime expression of Inverse Singularity Theory, in Rust."
+description = "IST — Imposition-Guided Selection Engine. The runtime expression of Inverse Singularity Theory, in Rust."
 license = "MIT"
 repository = "https://github.com/ankinow/inverse-singularity"
-keywords = ["inverse-singularity", "constraint", "entropy", "agent", "sovereign"]
+keywords = ["inverse-singularity", "constraint", "imposition", "agent", "sovereign"]
 categories = ["mathematics", "no-std", "embedded"]
 readme = "README.md"
 
@@ -20,7 +20,7 @@ readme = "README.md"
 #  Dependencies (optional only — zero non-dev deps when not
 #  requested). `serde` is gated behind the `serde` feature and
 #  is the ONLY optional dependency allowed by the axioms. It
-#  exists for downstream tooling that needs to serialize NEI
+#  exists for downstream tooling that needs to serialize IST
 #  records; the core engine compiles without it.
 # ─────────────────────────────────────────────────────────────
 
@@ -34,7 +34,7 @@ serde = ["dep:serde"]
 # ─────────────────────────────────────────────────────────────
 
 [lib]
-name = "nei"
+name = "ist"
 path = "src/lib.rs"
 
 [[example]]

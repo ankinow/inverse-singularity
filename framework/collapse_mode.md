@@ -8,7 +8,7 @@
 
 Time pressure is not an inconvenience — it is the mechanism. When time is abundant, priority is unclear. When time is scarce, only the essential survives. What remains after the collapse is the true signal.
 
-The 7-day cycle is not arbitrary. It maps to the NEI focus gradient:
+The 7-day cycle is not arbitrary. It maps to the IST focus gradient:
 
 $$
 \nabla(\tau, t) = \frac{1}{\tau - t + \varepsilon}
@@ -30,7 +30,7 @@ As $t \to \tau$, $\nabla \to \infty$. The agent's focus diverges hyperbolically 
 - **Density work**: generate ideas freely. $\phi(d) = \ln(1+d)$ rewards first ideas cheaply.
 - **No optimization**: do not refactor. Do not polish. The gradient is still shallow.
 - **Track complexity**: $\kappa(M)$ should stay flat. If it rises, you're adding structure, not signal.
-- End of Day 3: first audit. `NEI::audit()`. What's the sovereign score?
+- End of Day 3: first audit. `IST::audit()`. What's the sovereign score?
 
 ### Days 4–5 — Compression ($\nabla$ steep)
 - **Ruthless cut**: delete everything that doesn't directly serve the objective.
@@ -48,7 +48,7 @@ As $t \to \tau$, $\nabla \to \infty$. The agent's focus diverges hyperbolically 
 - **Ship or kill**: the artifact goes out or the branch is deleted.
 - **No extensions**: the deadline is the invariant. Extending it betrays A3.
 - **Post-mortem**: record $\phi(d)$, $\kappa(M)$, $Q$ for this cycle. Compare to previous.
-- **Update NEI state**: $t \gets 0$ for next cycle. Adjust $\lambda$ if evidence warrants.
+- **Update IST state**: $t \gets 0$ for next cycle. Adjust $\lambda$ if evidence warrants.
 
 ---
 
@@ -103,35 +103,35 @@ cargo run --example collapse
 # Python (reference)
 python3 -c "
 exec(open('framework/nei_engine.py').read())
-nei = NEI(lam=0.1, tau=7, sovereign_mode=True)
+ist = IST(lam=0.1, tau=7, sovereign_mode=True)
 state = {'complexity': 0.31, 'density': 0.85}
 for r in nei.collapse(state, 7):
-    print(f't={r[\"t\"]} Q={r[\"quality\"]:.4f} NEI={r[\"nei_score\"]:.5f} urgency={r[\"urgency\"]:.4f}')
+    print(f't={r[\"t\"]} Q={r[\"quality\"]:.4f} IST={r[\"nei_score\"]:.5f} urgency={r[\"urgency\"]:.4f}')
 "
 ```
 
 Output for the reference parameters ($c = 0.31$, $d = 0.85$, $\lambda = 0.1$, $\tau = 7$):
 
 ```
-t=1  Q=2.7419  NEI=0.03083  urgency=0.8571
-t=2  Q=2.7419  NEI=0.03699  urgency=0.7143
-t=3  Q=2.7419  NEI=0.04624  urgency=0.5714
-t=4  Q=2.7419  NEI=0.06166  urgency=0.4286
-t=5  Q=2.7419  NEI=0.09249  urgency=0.2857
-t=6  Q=2.7419  NEI=0.18497  urgency=0.1429
-t=0  Q=2.7419  NEI=0.02642  urgency=1.0000   ← cycle reset
+t=1  Q=2.7419  IST=0.03083  urgency=0.8571
+t=2  Q=2.7419  IST=0.03699  urgency=0.7143
+t=3  Q=2.7419  IST=0.04624  urgency=0.5714
+t=4  Q=2.7419  IST=0.06166  urgency=0.4286
+t=5  Q=2.7419  IST=0.09249  urgency=0.2857
+t=6  Q=2.7419  IST=0.18497  urgency=0.1429
+t=0  Q=2.7419  IST=0.02642  urgency=1.0000   ← cycle reset
 ```
 
 Note: $Q$ is constant because the demo uses fixed $(c, d)$. In real use, $d$ should rise and $c$ should fall across the cycle. The demo shows the gradient mechanism, not the learning curve.
 
 ---
 
-## Integration with NEI Engine
+## Integration with IST Engine
 
 ```rust
-use nei::NEI;
+use ist::IST;
 
-let mut agent = NEI::new();           // λ=0.1, τ=7, sovereign=true
+let mut agent = IST::new();           // λ=0.1, τ=7, sovereign=true
 let steps = agent.collapse(0.31, 0.85, 7);  // 7-day simulation
 
 let audit = agent.constraint_audit(2, 0, 1024);  // must be 1.000

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke example for the Hermes NEI adapter."""
+"""Smoke example for the Hermes IST adapter."""
 
 from __future__ import annotations
 

@@ -1,14 +1,14 @@
 //! `cargo run --example audit` — constraint_audit demo.
 //!
 //! Runs the four-axis compliance check across several tool/dep/mem
-//! combinations, showing which configurations pass the NEI hard limits.
+//! combinations, showing which configurations pass the IST hard limits.
 
-use nei::NEI;
+use ist::IST;
 
 fn main() {
-    let agent = NEI::new();
+    let agent = IST::new();
 
-    println!("NEI Constraint Audit — Hard Limit Compliance Matrix");
+    println!("IST Constraint Audit — Hard Limit Compliance Matrix");
     println!("─────────────────────────────────────────────────────");
     println!("Limits: tools ≤ 3 | deps = 0 | memory ≤ 50 MiB");
     println!();

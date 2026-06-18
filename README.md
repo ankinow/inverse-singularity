@@ -19,7 +19,7 @@
 *`lim (c→∞) Innovation(s, c) = 0`*
 
 [![MIT License](https://img.shields.io/badge/license-MIT-teal?style=for-the-badge)](LICENSE)
-[![NEI Core](https://img.shields.io/badge/engine-NEI%20v5-amber?style=for-the-badge)](#-the-engine)
+[![IST Core](https://img.shields.io/badge/engine-IST%20v6-amber?style=for-the-badge)](#-the-engine)
 [![axioms](https://img.shields.io/badge/axioms-4%20formal-crystal?style=for-the-badge)](#-the-axioms)
 [![zero deps](https://img.shields.io/badge/dependencies-zero-0a0a0a?style=for-the-badge)](#-sovereign-stack)
 [![rust primary](https://img.shields.io/badge/runtime-Rust%20%2B%20Python%20(ref)-c97a4a?style=for-the-badge)](#-the-engine)
@@ -78,7 +78,7 @@ The math is small. The proof is the practice.
 
 **Read it forward**: as density goes up and complexity goes down, quality diverges.
 **Read it backward**: when complexity grows faster than density, quality collapses to zero.
-The entire NEI engine is an exercise in keeping that ratio in your favor.
+The entire IST engine is an exercise in keeping that ratio in your favor.
 
 ---
 
@@ -130,10 +130,10 @@ cargo test --features serde      # 9/9 pass
 
 # Python (reference, didactic)
 python3 -c "
-from framework.nei_engine import NEI
-n = NEI.tuned(0.1, 7)
+from framework.ist_engine import IST
+n = IST.tuned(0.1, 7)
 steps = n.collapse(0.31, 0.85, 7)
-print(f'Q={steps[0][\"quality\"]:.4f}  NEI={steps[0][\"nei_score\"]:.5f}')
+print(f'Q={steps[0][\"quality\"]:.4f}  IST={steps[0][\"ist_score\"]:.5f}')
 "
 ```
 
@@ -180,13 +180,13 @@ inverse-singularity/
 │   ├── ist_axioms.tex            ── 4 formal axioms, LaTeX
 │   └── ist_distill_paper.md      ── 1-page distill paper (3 equations)
 │
-├── framework/                    ── NEI Core runtime (Python reference layer)
+├── framework/                    ── IST Core runtime (Python reference layer)
 │   ├── nei_engine.py             ── Python reference (69 lines, 0 deps, MIT)
 │   ├── MANIFESTO-LINGUAGEM.md    ── Why Rust, why not "Rust by default"
 │   └── collapse_mode.md          ── 7-day sprint methodology
 │
 ├── src/                          ── Rust primary runtime
-│   └── lib.rs                    ── NEI engine (~350 lines, 0 external crates)
+│   └── lib.rs                    ── IST engine (~350 lines, 0 external crates)
 ├── examples/                     ── Rust runnable demos
 │   ├── collapse.rs               ── 7-day collapse demo (fingerprint check)
 │   ├── audit.rs                  ── constraint audit matrix (8 combos)
@@ -236,7 +236,7 @@ an internal research thesis exploring constraint-driven intelligence density
 in long-running autonomous agents (UniTeia / Hermes, 2025–2026).
 
 The English-language framework **Inverse Singularity Theory (IST)** and its
-runtime **NEI (Negative Entropy Injection) Core** represent the formalized,
+runtime **IST (Imposition-Guided Selection) Engine** represent the formalized,
 publishable evolution of that work — kept faithful to the original Portuguese
 thesis, but stripped to the load-bearing structure.
 
@@ -258,8 +258,8 @@ cargo run --example tuned
 
 # Run the reference (Python, didactic fingerprint)
 python3 -c "
-from framework.nei_engine import NEI
-n = NEI.tuned(0.1, 7)
+from framework.ist_engine import IST
+n = IST.tuned(0.1, 7)
 print(n.collapse(0.31, 0.85, 7))
 "
 

@@ -4,14 +4,14 @@
 //! This is the *fingerprint check*: the Rust output must equal the
 //! Python output. If it doesn't, one of the two is wrong.
 
-use nei::{NEI, Step};
+use ist::{IST, Step};
 
 fn main() {
-    println!("NEI Engine v5 — Constraint-Driven Intelligence Amplification");
+    println!("IST Engine v5 — Constraint-Driven Intelligence Amplification");
     println!("   (Rust primary · zero external crates · MIT)");
     println!("─────────────────────────────────────────────────────────────");
 
-    let mut agent = NEI::new();
+    let mut agent = IST::new();
     let complexity: f64 = 0.31;
     let density:    f64 = 0.85;
 
@@ -23,7 +23,7 @@ fn main() {
 
     let steps: Vec<Step> = agent.collapse(complexity, density, 7);
     for s in &steps {
-        println!("  t={}  Q={:>6.3}  NEI={:>9.5}  urgency={:.4}",
+        println!("  t={}  Q={:>6.3}  IST={:>9.5}  urgency={:.4}",
                  s.t, s.quality, s.nei_score, s.urgency);
     }
 

@@ -14,7 +14,7 @@ This directory holds external references, peer reviews, and validation materials
 
 ## Submissions Welcome
 
-If you have applied IST/NEI to a real system and have results to share, open a PR adding your paper or case study here. Format: `papers/YYYY-MM-DD-short-title.md`.
+If you have applied IST to a real system and have results to share, open a PR adding your paper or case study here. Format: `papers/YYYY-MM-DD-short-title.md`.
 
 ## Related Work
 

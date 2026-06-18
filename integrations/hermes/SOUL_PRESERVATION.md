@@ -45,7 +45,7 @@ The correct integration shape is:
 
 ```text
 SOUL.md                  → source identity, preserved
-IST / NEI                → runtime invariant and constraint calculus
+IST                → runtime invariant and constraint calculus
 ECC skills/rules/hooks   → imported operational surfaces
 Hermes adapter           → selective bridge and policy gate
 Hermes active context    → compiled packet, never raw uncontrolled bloat

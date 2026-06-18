@@ -5,7 +5,7 @@
 >
 > **There is no default language. There never will be.**
 >
-> Rust is the *current expression* of NEI. It was chosen, not assumed.
+> Rust is the *current expression* of IST. It was chosen, not assumed.
 > The choice is a virtue, not a rule. The next expression may be
 > something else — and the axioms will be the only thing that does not
 > move.
@@ -23,7 +23,7 @@ A reader of this repository will, naturally, ask:
 The shortest honest answer is:
 
 > The engine is in Rust because **Rust, at the level of types and
-> runtime, instantiates the four NEI axioms more directly than any
+> runtime, instantiates the four IST axioms more directly than any
 > other widely available language at the time of writing.**
 >
 > This is not a vote for Rust. It is a description of a fit.
@@ -46,7 +46,7 @@ The other languages we considered, and the reason they were not chosen for the *
 - **Python** — Beautiful, dense, interactive. The reference engine remains in Python for didactic reasons. But: GIL, runtime type errors, no compile-time enforcement of the four axioms, no `no_std`, the entire standard library is a dependency the axioms do not need.
 - **C** — Closer to the axioms in some ways (no_std, no GC, no runtime), but: A4 is impossible to enforce at the type level; A2 is undermined by the language's lack of algebraic types; the cost of *not* choosing Rust is, surprisingly, *more* code.
 - **Go** — Excellent A3, decent A1. But A2 is poor (no algebraic types, no zero-cost abstractions, GC runtime); A4 is unenforceable.
-- **Zig** — A very strong candidate. Rejected for now only because Rust's `cargo` ecosystem is more mature at the time of writing. This is a *contingent* reason, not a structural one. The next expression of NEI may be in Zig.
+- **Zig** — A very strong candidate. Rejected for now only because Rust's `cargo` ecosystem is more mature at the time of writing. This is a *contingent* reason, not a structural one. The next expression of IST may be in Zig.
 - **Haskell, OCaml, Idris, Lean, Coq** — Algebraic types, dependent types, theorem provers. Closer to the math than any other family. But A3 fails badly in practice: build times, toolchain complexity, and onboarding cost. The axioms ask for *both* a tight math expression *and* a tight operational expression; the proof-assistant family gives the first and weakens the second.
 - **JavaScript, TypeScript, Ruby, PHP, Java, Kotlin, Swift** — Not in the running. The axiom-cost of an interpreter or VM in the loop is too high to justify any other virtue they might offer.
 
@@ -57,7 +57,7 @@ The list is not a verdict on the languages. It is a record of *why this choice w
 It is not:
 
 - A claim that Rust is "the best language" in any universal sense.
-- A claim that NEI cannot be expressed in another language.
+- A claim that IST cannot be expressed in another language.
 - A claim that the Python reference is "less correct" or "less important."
 - A ban on ports to other languages — see below.
 
@@ -67,7 +67,7 @@ The engine is small by design. Porting it to another language is:
 
 - **Explicitly invited.** If you can express the four axioms more directly in another language, the framework is better for it.
 - **Required to keep the math identical.** Any port must produce the same scalar outputs (ψ, φ, ∇, Q) to within floating-point determinism. The Python reference and the Rust primary are *fingerprints* of each other: their outputs must agree.
-- **Required to keep the four-axiom self-audit (`NEI::audit`) intact.** The Sovereign Invariant is the only invariant of the framework. A port that loses it is not a port; it is a fork.
+- **Required to keep the four-axiom self-audit (`IST::audit`) intact.** The Sovereign Invariant is the only invariant of the framework. A port that loses it is not a port; it is a fork.
 
 ## 6. The Sovereign Statement
 
