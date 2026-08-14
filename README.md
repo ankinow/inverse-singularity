@@ -293,11 +293,15 @@ That is the entire install. **There is no other step.**
 │  Manifesto      ████████████████████  pt-BR + EN, in repo               │
 │  Sovereign      ████████████████████  A4 enforced at runtime            │
 │  Output Identity ████████████████████ Rust↔Python 7/7 match (5 dec)     │
-│  External Crit. ████████░░░░░░░░░░░░  invited review (in progress)      │
+│  External Crit. ████████████████████  **Audited 2026-08-14: 6 sources**   │
+│                  DeepMind 17×, LERMF post-mortem, podcast "Dilema IA"    │
+│  Delegation GW   ████████████████████  v0.7.0 · 8/8 tests · A4 enforced │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Status**: V5 complete · Sovereign layer integrated · Zero dependencies · 9/9 tests · Serde optional · Deploy-ready.
+**Status**: V5 complete · Sovereign layer integrated · Zero dependencies · 17/17 tests (9 core + 8 gateway) · Serde optional · Deploy-ready.
+
+**Frontier anchor (2026-08-14):** `wiki/the-dilemma-of-self-rewriting-ai-2026.md` — primary anchor document. Maps the 2026 frontier podcast (Hermes, SOUL.md, IST, RSIP, MCP, AutoDream, EvalDim9D, YOLO, DeepMind 17× error amplification, etc.) to the runtime + LERMF-grounded critiques.
 
 ---
 
