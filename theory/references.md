@@ -200,7 +200,21 @@ External bodies of work relevant to the NEXUS_V3.0_KERNEL and IST:
 | **Quantum Entanglement** (EPR, Bell) | Non-local correlations between particles. The theoretical basis for EIL — entangled agents share state without message passing. |
 | **Quantum Tunneling** (Gamow, Gurney & Condon) | Particles passing through classically forbidden barriers. The metaphor for NEI constraint breakthrough — the agent discovers solutions beyond classical reach. |
 
+## Frontier References (audited 2026-08-14)
+
+Sources consulted during the Delegation Gateway implementation
+(`theory/delegation-gateway.md`, `src/gateway.rs`).
+
+| Source | Relevance |
+|:-------|:----------|
+| **"The Orchestration of Multi-Agent Systems"** — arXiv:2601.13671 | Unifies MCP (tool access) + A2A (peer negotiation/delegation) as the interoperable substrate for distributed agent collectives. Names *policy enforcement* as a goal without a mechanism — the IST gateway is a candidate mechanism (traceability, auditability, controllability, recovery + the A2 quality gate). |
+| **"Authorization Propagation in Multi-Agent AI Systems"** — arXiv:2605.05440 | Four constraints for oversight-heavy AI: traceability, auditability, controllability, recovery. Directly parallels the gateway's A4 boundary enforcement at the identity layer. |
+| **MIT AI Agent Index 2025** (aiagentindex.mit.edu) | 30 agents, 45 fields. 24/30 launched or majorly updated 2024-2025; autonomy L1→L5 rising; browser agents at L4-L5 with limited intervention; only 4/13 frontier-autonomy agents disclose agentic safety evals; 25/30 disclose no internal safety results; 20/30 support MCP; 23/30 fully closed source. Capability grows faster than governance — the gap the sovereign invariant addresses. |
+| **VoltAgent/awesome-ai-agent-papers** (github.com/VoltAgent) | Curated 2026 agent research: multi-agent coordination, memory & RAG, tooling, evaluation & observability, security. Live catalog for IST validation targets. |
+| **LangChain "Context Engineering for Agents"** (2026-06) | Taxonomy: Write/Select/Compress/Isolate. All four are κ-management techniques with no quality function. "Isolate" is A2 empirically (smaller κ per agent → higher Q per agent), but multi-agent workflows cost up to 15× tokens — κ growth at the system level. See CURIOSITY.md "κ Proliferation" thread. |
+| **Gamage (2026-04)** | 4,416 trials, 6 conversation depths: constraint compliance 73% at turn 5 → 33% at turn 16. The A2 collapse curve measured in production; the no-deadline control group for A3. |
+
 ---
 
-*References · NEXUS_V3.0_KERNEL · 2026-06-20*
+*References · NEXUS_V3.0_KERNEL · 2026-06-20 · updated 2026-08-14 (Delegation Gateway)*
 *Six repos. Ten papers. Five ecosystem components. One theory.*

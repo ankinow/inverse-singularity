@@ -26,6 +26,15 @@
 // a refactor (see framework/MANIFESTO-LINGUAGEM.md, §5).
 
 // ────────────────────────────────────────────────────────────────
+//   §0 — Module surface
+// ────────────────────────────────────────────────────────────────
+
+/// IST — Delegation Gateway. The IST-governed decision layer for
+/// subagent fan-out: when to delegate, how many children, and under
+/// which deadline, such that delegation increases Q instead of κ.
+pub mod gateway;
+
+// ────────────────────────────────────────────────────────────────
 //   §1 — The three primitive transformations
 // ────────────────────────────────────────────────────────────────
 
@@ -146,7 +155,14 @@ impl IST {
     /// urgency, and the new step index.
     pub fn evolve(&mut self, complexity: f64, density: f64) -> Step {
         self.t = (self.t + 1) % self.tau;
-        let quality = density / (complexity + f64::EPSILON);
+        // A2-canonical quality: Q = φ(d) / (κ + ε). The φ transform is
+        // the mathematical encoding of A2 — the first units of density
+        // are cheap, later ones face a rising bar. Computing quality as
+        // a raw density/κ ratio (as earlier versions did) treats all
+        // density contributions as linearly equal, which is anti-A2.
+        // Aligned with the core equation 2026-08-14 (see CURIOSITY.md,
+        // "κ Proliferation" thread — RESOLVED at runtime layer).
+        let quality = phi(density) / (complexity + f64::EPSILON);
         let nei_score = self.inject(complexity, density);
         let urgency = 1.0 - (self.t as f64 / self.tau as f64);
         Step { quality, nei_score, urgency, t: self.t }
@@ -219,7 +235,7 @@ impl Default for IST {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Step {
-    /// `Q = density / (complexity + ε)`
+    /// `Q = φ(density) / (complexity + ε)` — the A2-canonical quality.
     pub quality: f64,
     /// The scalar IST score, after the three transformations.
     pub nei_score: f64,

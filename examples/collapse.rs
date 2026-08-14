@@ -18,7 +18,7 @@ fn main() {
     println!("In 7 days:");
     println!("  φ(d)         = {:>8.4}   conceptual density", density.ln_1p());
     println!("  κ            = {:>8.4}   complexity entropy", complexity);
-    println!("  Q            = {:>8.4}   quality ratio",     density / (complexity + f64::EPSILON));
+    println!("  Q            = {:>8.4}   quality ratio φ(d)/κ", density.ln_1p() / (complexity + f64::EPSILON));
     println!("─────────────────────────────────────────────────────────────");
 
     let steps: Vec<Step> = agent.collapse(complexity, density, 7);

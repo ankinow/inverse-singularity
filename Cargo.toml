@@ -1,6 +1,6 @@
 [package]
 name = "ist_engine"
-version = "0.6.0"          # bumped from 0.4.x (Python) to 0.5.0 (Rust primary)
+version = "0.7.0"          # bumped from 0.6.0 — Delegation Gateway + A2-canonical quality (2026-08-14)
 edition = "2021"
 rust-version = "1.74"
 description = "IST — Imposition-Guided Selection Engine. The runtime expression of Inverse Singularity Theory, in Rust."
@@ -48,6 +48,10 @@ path = "examples/audit.rs"
 [[example]]
 name = "tuned"
 path = "examples/tuned.rs"
+
+[[example]]
+name = "delegation"
+path = "examples/delegation.rs"
 
 [profile.release]
 opt-level = 3

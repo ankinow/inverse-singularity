@@ -1,8 +1,54 @@
-# Changelog — NEXUS V3.0.0-edge
+# Changelog — NEXUS V3.1.0-edge
 
 **Inverse Singularity Theory · NEXUS_V3.0_KERNEL**
 
 > *"The framework must evolve or it is dead."* — Article IV, Perpetual Evolution
+
+---
+
+## v0.7.0 — 2026-08-14 — Delegation Gateway + A2-canonical quality
+
+**The delegation release.** Answers the CURIOSITY.md "κ Proliferation"
+thread at the runtime layer: subagent fan-out now has a quality
+function, and `Step.quality` finally measures what it claims.
+
+### Runtime (Rust primary)
+
+- **`src/gateway.rs` added — the IST Delegation Gateway.** Governs
+  subagent fan-out with the four axioms: when to delegate, how many
+  children, under which deadline. Decision rule:
+  `delegate iff Q_delegated > (1 + gain)·Q_local`, with A1 hard cap
+  on children, A3 deadline horizon, and A4 sovereignty refusal for
+  entropy-importing children. Exported as `ist::gateway`.
+- **A2-canonical `Step.quality`** — `evolve()` now computes
+  `Q = φ(d) / (κ + ε)` instead of the raw `d/κ` ratio. The φ transform
+  is the mathematical encoding of A2 (first ideas cheap, later ones
+  face a rising bar); the old ratio treated all density as linearly
+  equal — anti-A2. Canonical demo now yields Q = 1.9845 = φ(0.85)/0.31.
+- **8 new tests** (17 total, all passing) covering the four refusals
+  (NoChildren, TooManyChildren, SovereigntyViolation, QualityCrossover),
+  the φ-space merge, urgency decay, and gateway self-audit.
+- **`examples/delegation.rs` added** — the A2 crossover demo: the same
+  children delegate under cheap coordination and are refused under
+  expensive coordination.
+
+### Python reference
+
+- **`framework/gateway_engine.py` added** — fingerprint mirror of the
+  Rust gateway. Verified identical decisions to 4 decimal places.
+- **`framework/ist_engine.py`** — `evolve()` quality aligned to the
+  A2-canonical `φ(d)/κ`. Fingerprint verified (Q = 1.9845).
+
+### Theory
+
+- **`theory/delegation-gateway.md` added** — the full statement of the
+  gateway model: decision rule, the four refusals, A3/A4 at the
+  delegation layer, frontier signal convergence (MIT AI Agent Index,
+  arXiv orchestration literature, κ proliferation).
+- **`theory/references.md` updated** — six frontier sources audited
+  2026-08-14 added (arXiv:2601.13671, arXiv:2605.05440, MIT AI Agent
+  Index 2025, VoltAgent papers, LangChain Context Engineering, Gamage
+  constraint decay).
 
 ---
 

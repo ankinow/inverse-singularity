@@ -8,6 +8,7 @@ This directory holds external references, peer reviews, and validation materials
 
 ## Contents
 
+- `../theory/delegation-gateway.md` — *The Delegation Gateway: IST Applied to Subagent Fan-Out* (2026-08-14). Runtime-verified model with fingerprint-identical Rust/Python implementations and 8 passing tests. A case study of A2 at the orchestration layer — when fan-out to subagents raises system quality and when coordination κ swamps it.
 - *(pending)* — Peer review submissions
 - *(pending)* — Comparative analysis with scaling-law literature
 - *(pending)* — Empirical collapse mode results

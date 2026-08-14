@@ -45,7 +45,10 @@ class IST:
     def evolve(self, c, d):
         self.t = (self.t + 1) % self.tau
         return {
-            "quality": d / (c + 1e-9),
+            # A2-canonical quality: Q = φ(d) / (κ + ε), aligned with
+            # the Rust primary on 2026-08-14 (see CURIOSITY.md, "κ
+            # Proliferation" thread — RESOLVED at runtime layer).
+            "quality": phi(d) / (c + 1e-9),
             "nei_score": self.inject(c, d),
             "urgency": 1 - (self.t / self.tau),
             "t": self.t

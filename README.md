@@ -255,6 +255,7 @@ cd inverse-singularity
 cargo run --example collapse
 cargo run --example audit
 cargo run --example tuned
+cargo run --example delegation   # Delegation Gateway — the A2 crossover
 
 # Run the reference (Python, didactic fingerprint)
 python3 -c "
@@ -264,8 +265,8 @@ print(n.collapse(0.31, 0.85, 7))
 "
 
 # Run tests
-cargo test                    # 9/9 pass
-cargo test --features serde   # 9/9 pass with serde
+cargo test                    # 17/17 pass (9 core + 8 gateway)
+cargo test --features serde   # 17/17 pass with serde
 
 # Read the thesis
 cat theory/ist_manifesto.md
