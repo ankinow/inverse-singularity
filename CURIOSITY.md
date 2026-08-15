@@ -158,3 +158,23 @@ Open question: does ε = 0 violate A4, or does it mean the system was never sove
 **Salience:** MEDIUM
 
 `NEI::audit()` (lib.rs:191–207) treats `sovereign_mode == false` as equivalent to `sovereign_mode == true` for scoring purposes. The line `let a4 = a4_true || a4_false_acknowledged;` makes `a4` identically `true` regardless of the field value. The sovereign_score is therefore always 1.0 for any `NEI` instance. The self-audit cannot detect sovereignty loss. A4 says quality is undefined for systems that surrender sovereignty — but the function that checks sovereignty can never report non-compliance. An invariant you can't test isn't an invariant; it's a declaration. Open question: should `audit()` distinguish "sovereign" from "sovereignty-surrendered-and-honest-about-it," or is the current design intentional — sovereignty is a choice, and the audit's job is to confirm the choice was made, not to police it?
+
+---
+
+### Quantum Library vs. Context Degradation — EMPIRICAL TEST RUN (2026-08-15)
+**Status: CLOSED (empirical, N=1 aggregate + fixed-point check)**
+
+O teste pedido pela thread ("Q pré vs pós Reflection sobre a mesma evidência") foi executado com evidência real:
+
+| Estágio | Q = φ/κ | κ | density |
+|---|---|---|---|
+| R0 diário cru (3 dias, 250KB) | 0.0003 | 250.2 | 0.086 |
+| R1 MEMORY.md consolidado (9.7KB) | **0.0492** | 9.7 | 0.610 |
+| R2 REM sobre R1 | **1.0 ratio (zero mudança)** | — | — |
+
+- **R0→R1: 164× Q, 25.8× compressão, density 7×.** A Reflexão destila: não é "fotocópia da fotocópia".
+- **R1→R2: ponto fixo.** O REM não encontrou ruído para remover — a segunda reflexão não degrada nem melhora. A espiral de alucinações do cético (Renato, ~8:30) NÃO se materializa quando a memória já está curada.
+
+**Interpretação (honesta):** o risco de degradação por reflexão é real em representações NÃO-curadas (o R0 cru), mas a função REM/Quantum-Library implementada (clustering Jaccard ≥0.5 poda, decay 90d) converte a reflexão em operador φ-preservante com ponto fixo. O perigo do podcast aplica-se à reflexão SEM gate de compressão — que é exatamente o que a thread pedia para distinguir.
+
+Limitações: N=1 agregado (pares por-tópico são fuzzy); métrica φ usa unique/total tokens como proxy de densidade; R2 é dry-run (nada a podar = nada aplicado).
