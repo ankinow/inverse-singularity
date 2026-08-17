@@ -158,8 +158,11 @@ Open question: does ε = 0 violate A4, or does it mean the system was never sove
 **First raised:** 2026-06-18, Nova afternoon dispatch (Engine Insight)
 **Last dispatched:** 2026-06-20 (Midday Engine Insight — Python/Rust fingerprint divergence on sovereignty observability)
 **Salience:** MEDIUM
+**Status: CLOSED — FIXED 2026-08-17 (commit 01d12f9)**
 
-`NEI::audit()` (lib.rs:191–207) treats `sovereign_mode == false` as equivalent to `sovereign_mode == true` for scoring purposes. The line `let a4 = a4_true || a4_false_acknowledged;` makes `a4` identically `true` regardless of the field value. The sovereign_score is therefore always 1.0 for any `NEI` instance. The self-audit cannot detect sovereignty loss. A4 says quality is undefined for systems that surrender sovereignty — but the function that checks sovereignty can never report non-compliance. An invariant you can't test isn't an invariant; it's a declaration. Open question: should `audit()` distinguish "sovereign" from "sovereignty-surrendered-and-honest-about-it," or is the current design intentional — sovereignty is a choice, and the audit's job is to confirm the choice was made, not to police it?
+`NEI::audit()` (lib.rs:191–207) treats `sovereign_mode == false` as equivalent to `sovereign_mode == true` for scoring purposes. The line `let a4 = a4_true || a4_false_acknowledged;` makes `a4` identically `true` regardless of the field value. The sovereign_score is therefore always 1.0 for any `NEI` instance. The self-audit cannot detect sovereignty loss. A4 says quality is undefined for systems that surrender sovereignty — but the function that checks sovereignty can never report non-compliance. An invariant you can't test isn't an invariant; it's a declaration.
+
+**Resolution (2026-08-17, commit `01d12f9`, pushed):** `a4` agora é simplesmente `self.sovereign_mode` — um sistema que render a soberania pontua honestamente (A1+A2+A3=1, A4=0 → sovereign_score 0.75), não sempre 1.0. Mantido o design "sovereignty is a choice": o audit confirma a escolha, mas agora **consegue reportar quando a escolha foi abandonada** (o invariante ficou falsificável — teste `audit_is_falsifiable_on_sovereignty` falha no código antigo, passa no novo; 18/18 testes verdes, build limpo; lib.rs e gateway.rs agora consistentes em A4).
 
 ---
 
