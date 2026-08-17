@@ -208,13 +208,16 @@ impl IST {
         // A1: lambda ≥ 0 (a non-negative constraint always exists)
         // A2: this method exists and is O(1) (quality is computable)
         // A3: tau ≥ 1 (a deadline always exists)
-        // A4: sovereign_mode ∈ {true, false} and we report it
         let a1 = self.lambda >= 0.0;
         let a2 = true;
         let a3 = self.tau >= 1;
-        let a4_true = self.sovereign_mode;
-        let a4_false_acknowledged = !self.sovereign_mode; // the lie is named, not hidden
-        let a4 = a4_true || a4_false_acknowledged;
+        // A4: sovereign_mode ∈ {true, false} and we report it. Previously
+        // `a4 = sovereign_mode || !sovereign_mode` made A4 identically true —
+        // the audit could never report a sovereignty lapse (unfalsifiable
+        // invariant, flagged by CURIOSITY.md 2026-06-18). Now A4 is true
+        // only when sovereignty is actually held; a surrendered system
+        // scores honestly.
+        let a4 = self.sovereign_mode;
         let sovereign_score = [a1, a2, a3, a4].iter().map(|b| *b as u8).sum::<u8>() as f64 / 4.0;
         SelfAudit {
             sovereign_score,
@@ -342,6 +345,36 @@ mod tests {
         let n = IST::new();
         let a = n.audit();
         assert_eq!(a.sovereign_score, 1.0);
+    }
+
+    #[test]
+    fn audit_is_falsifiable_on_sovereignty() {
+        // Regression for CURIOSITY.md 2026-06-18: `audit()` used to compute
+        // `a4 = sovereign_mode || !sovereign_mode` which is always true, so
+        // the sovereign_score was always 1.0 — the audit could never report
+        // a sovereignty lapse. Now a surrendered system must score honestly.
+        let sovereign = IST {
+            lambda: 0.1,
+            tau: 7,
+            t: 0,
+            sovereign_mode: true,
+        };
+        let surrendered = IST {
+            lambda: 0.1,
+            tau: 7,
+            t: 0,
+            sovereign_mode: false,
+        };
+
+        let sa = sovereign.audit();
+        assert_eq!(sa.sovereign_mode, true);
+        // A1+A2+A3 true, A4 true  -> 4/4
+        assert!((sa.sovereign_score - 1.0).abs() < 1e-12, "sovereign score {:.4}", sa.sovereign_score);
+
+        let su = surrendered.audit();
+        assert_eq!(su.sovereign_mode, false);
+        // A1+A2+A3 true, A4 false -> 3/4 (HONEST — was bugged to 4/4)
+        assert!((su.sovereign_score - 0.75).abs() < 1e-12, "surrendered score {:.4}", su.sovereign_score);
     }
 
     #[test]
