@@ -187,7 +187,10 @@ impl IST {
         let max_mem_bytes = MAX_MEM_MB * 1024 * 1024;
 
         let ok_t = tool_count <= MAX_TOOLS;
-        let ok_d = dep_count  <= MAX_DEPS;
+        // A1 zero-deps doctrine: MAX_DEPS is 0, so `==` is the faithful
+        // encoding of "at most zero dependencies" (u32 cannot be negative);
+        // clippy::absurd_extreme_comparisons flags the `<=` form.
+        let ok_d = dep_count  == MAX_DEPS;
         let ok_m = memory_bytes <= max_mem_bytes;
         let ok_s = self.sovereign_mode;
 
@@ -272,6 +275,116 @@ pub struct SelfAudit {
     pub sovereign_score:  f64,
     /// A4 raw value.
     pub sovereign_mode:   bool,
+}
+
+// ────────────────────────────────────────────────────────────────
+//   §3b — Trajectory analysis (A3: deadline-aware quality)
+// ────────────────────────────────────────────────────────────────
+//
+// CURIOSITY.md, "Structural/Behavioral Split" (2026-06-22, Morning
+// dispatch): *"maybe A3's proper expression isn't a field in `Step`
+// at all, but a function over `Vec<Step>` — something that reads the
+// arc, not the point."* `Step.quality` is A2 (local, static per
+// input); `Step.nei_score`/`Step.urgency` are A3 (global, respond to
+// the deadline). The split lives in the memory layout of `Step`.
+// This function is the A3 view of a trajectory: it reads the arc,
+// not the point, and asks whether the deadline *does something* to
+// the agent.
+
+/// Reads the arc of a `Vec<Step>` (A3 view), not any single point.
+///
+/// The four IST axioms split into two kinds: A1/A2/A4 are structural
+/// (checkable on one `NEI` instance), A3 is behavioral (only readable
+/// across a trajectory under pressure). This report is the A3 lever:
+/// it quantifies how the arc bends, and whether quality holds while
+/// the deadline closes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TrajectoryReport {
+    /// Number of steps in the arc.
+    pub length: usize,
+    /// `1 − σ_quality / μ_quality` — quality stability across the arc.
+    /// 1.0 means constant quality (A2 holds, nothing decays); near 0
+    /// means the arc collapsed (A2 erosion, the Gamage curve).
+    pub quality_stability: f64,
+    /// Mean absolute change of `urgency` per step. Positive = the arc
+    /// is under a closing deadline (A3 active); 0 = a flat horizon
+    /// (A3 absent — the "no-deadline control group" of the thread).
+    pub urgency_slope: f64,
+    /// `nei_score.last − nei_score.first` as a fraction of the first.
+    /// The NEI score embeds ∇, so under a real deadline this should be
+    /// positive — the arc *converges to a better model* as t→τ (A3).
+    pub focus_delta: f64,
+    /// `0` if the arc shows no deadline pressure (A3 inert),
+    /// `1` if urgency is strictly decreasing for at least one full
+    /// cycle (A3 engaged).
+    pub deadline_engaged: u8,
+}
+
+/// Analyze a collapse arc from the A3 (behavioral/trajectory) view.
+///
+/// `analyze_trajectory` is the complement of `Step.quality` (the A2
+/// point view). It is deadline-blind service-quality, so it does not
+/// collapse; urgency is never folded into `Step.quality`, keeping the
+/// two measures honest about what they each represent.
+#[must_use]
+pub fn analyze_trajectory(steps: &[Step]) -> TrajectoryReport {
+    let length = steps.len();
+
+    // Quality stability (A2 erosion test): coefficient of variation.
+    let q_mean = steps.iter().map(|s| s.quality).sum::<f64>() / length.max(1) as f64;
+    let q_var = steps
+        .iter()
+        .map(|s| (s.quality - q_mean).powi(2))
+        .sum::<f64>()
+        / length.max(1) as f64;
+    let q_sd = q_var.sqrt();
+    let stability = if q_mean > 1e-12 { 1.0 - (q_sd / q_mean) } else { 1.0 };
+
+    // Urgency slope (A3 engagement): mean |Δ urgency| per adjacent pair.
+    let mut slope_sum = 0.0;
+    let mut pairs = 0usize;
+    for w in steps.windows(2) {
+        slope_sum += (w[1].urgency - w[0].urgency).abs();
+        pairs += 1;
+    }
+    let slope = if pairs > 0 { slope_sum / pairs as f64 } else { 0.0 };
+
+    // Focus delta (A3 convergence): how the deadline bends NEI score.
+    let focus_delta = if length > 1 {
+        let first = steps[0].nei_score;
+        let last = steps[length - 1].nei_score;
+        if first.abs() > 1e-12 {
+            (last - first) / first.abs()
+        } else {
+            0.0
+        }
+    } else {
+        0.0
+    };
+
+    // Deadline engaged: is urgency strictly decreasing across any full
+    // monotone run of length ≥ 2 (i.e. not just the wrap-around jump)?
+    let mut engaged = 0u8;
+    let mut run = 1usize;
+    for w in steps.windows(2) {
+        if w[0].t < w[1].t && w[1].urgency < w[0].urgency {
+            run += 1;
+        } else if w[0].t > w[1].t {
+            run = 1;
+        }
+    }
+    if run >= 2 {
+        engaged = 1;
+    }
+
+    TrajectoryReport {
+        length,
+        quality_stability: stability.max(0.0),
+        urgency_slope: slope,
+        focus_delta,
+        deadline_engaged: engaged,
+    }
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -398,5 +511,64 @@ mod tests {
                         w[0].t, w[1].t, w[0].urgency, w[1].urgency);
             }
         }
+    }
+
+    #[test]
+    fn trajectory_holds_quality_and_flags_deadline() {
+        // A3 view over one full 7-day collapse. Quality must be constant
+        // (A2 is deadline-blind → perfect stability), focus_delta must be
+        // positive (the NEI score embeds ∇, so the arc bends upward as the
+        // deadline closes), and the deadline must read as engaged.
+        //
+        // NOTE: we sample `tau - 1` steps (t=1..6 for tau=7) so the arc
+        // ends at the tightest pre-wrap urgency. A 7th step would wrap
+        // t back to 0 and urgency back to its loosest — the recurring
+        // horizon documented in `collapse_returns_correct_step_count`.
+        // That wrap is not "convergence"; it is the deadline restarting.
+        let mut n = IST::new();
+        let steps = n.collapse(0.31, 0.85, 6);
+        let tr = analyze_trajectory(&steps);
+
+        assert_eq!(tr.length, 6);
+        // A2 quality is invariant per input → coefficient of variation 0.
+        assert!((tr.quality_stability - 1.0).abs() < 1e-12,
+                "quality_stability={:.6}", tr.quality_stability);
+        // Urgency strictly decreases within the cycle → mean slope > 0.
+        assert!(tr.urgency_slope > 0.0, "urgency_slope={:.6}", tr.urgency_slope);
+        // NEI score rises as t→τ (focus gradient) → focus_delta positive.
+        assert!(tr.focus_delta > 0.0, "focus_delta={:.6}", tr.focus_delta);
+        assert_eq!(tr.deadline_engaged, 1);
+    }
+
+    #[test]
+    fn trajectory_flat_when_no_steps() {
+        // Edge case: an empty arc cannot declare a deadline.
+        let empty: Vec<Step> = Vec::new();
+        let tr = analyze_trajectory(&empty);
+        assert_eq!(tr.length, 0);
+        assert_eq!(tr.deadline_engaged, 0);
+        assert_eq!(tr.urgency_slope, 0.0);
+        assert_eq!(tr.focus_delta, 0.0);
+    }
+
+    #[test]
+    fn trajectory_distinguishes_arc_from_point_stability() {
+        // Hand-build two arcs that share a *single-point* quality but
+        // differ in their arc shape: quality eroded vs quality held.
+        let start = Step { quality: 1.0, nei_score: 10.0, urgency: 1.0, t: 1 };
+        let held = Step { quality: 1.0, nei_score: 11.0, urgency: 0.5, t: 2 };
+        let eroded = Step { quality: 0.3, nei_score: 11.0, urgency: 0.5, t: 2 };
+
+        let stable_arc = analyze_trajectory(&[start, held]);
+        let decay_arc = analyze_trajectory(&[start, eroded]);
+
+        // The point view (last quality) differs, but the whole-point view
+        // is where A3 lives: stability captures erosion the point cannot.
+        assert_eq!(stable_arc.quality_stability, 1.0);
+        assert!(decay_arc.quality_stability < 0.5,
+                "decayed arc stability={:.4}", decay_arc.quality_stability);
+        // Same urgency slope, same focus delta: only stability separates them.
+        assert_eq!(stable_arc.urgency_slope, decay_arc.urgency_slope);
+        assert_eq!(stable_arc.focus_delta, decay_arc.focus_delta);
     }
 }
