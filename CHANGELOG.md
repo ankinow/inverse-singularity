@@ -6,6 +6,34 @@
 
 ---
 
+## v0.7.5 — 2026-08-23 — A3-productive-τ: effective half-life vs the budget knob
+
+Closes the actionable gap left by the v0.7.3 empirical finding (production sessions
+rot Gamage-style, not A3). Where v0.7.3 *measured* the decay, v0.7.5 turns it into a
+budget decision:
+
+- **`examples/a3_productive_tau.py`** — stdlib harness that re-derives the session
+  survival curve from the live diary (52 sessions with ≥30 tool turns, up from 45),
+  computes the **effective productive τ\* = empirical semi-collapse turn**, reads the
+  live Hermes budget knob (`agent.max_turns` / any `goals.max_turns`), and states the
+  gap as a ratio + a self-adaptive-τ recommendation.
+- **Result:** τ\* = **turn 55** (survivors drop below 0.5; consistent with the earlier
+  ~57, as the diary lengthened). The live knob is `agent.max_turns=999` (`goals.max_turns`
+  is gone) → **gap ratio 18.16× of τ\***, up from ~1.7× at v0.7.3 (99/57). Raising the
+  ceiling **widened** the never-felt deadline — a rocket knob is weaker than the already
+  weak 99 was.
+- **Recommendation (self-adaptive τ, A3-inverted):** give the agent an *upcoming deadline
+  at its own half-life* — **rec τ = 66 (≈1.2 × τ\*)**, re-derived on every diary compaction
+  (mid-curve), so the convergence pressure A3 needs exists while >50% of sessions are still
+  alive. The agent that knows its own half-life converges *before* decay, not after being
+  told to compress at a 999-turn ceiling.
+- **`CURIOSITY.md`** — the A3 thread (Structural/Behavioral Split) gains an ACTIONABLE
+  CLOSURE entry quantifying the weak-τ evidence and the concrete τ proposal.
+- **Evidence:** `python3 examples/a3_productive_tau.py` → SELF-CHECK PASS, 52 sessions,
+  τ\*=55, gap 18.16×, rec τ=66; `cargo test --release` **25/25 verdes**.
+
+---
+
 ## v0.7.4 — 2026-08-23 — The Delegation Boundary: consent is opt-in (A4 at the fan-out layer)
 
 Answers the open question in CURIOSITY.md (§The Delegation Boundary — A4 at the
