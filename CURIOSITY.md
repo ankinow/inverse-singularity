@@ -119,10 +119,12 @@ If Constraint Primacy (A1) says the wall defines the door, and Sovereign Invaria
 
 ### The Delegation Boundary — A4 at the Fan-Out Layer
 **First raised:** 2026-08-14, Delegation Gateway implementation (`src/gateway.rs`)
-**Last dispatched:** 2026-08-14 (implementation)
+**Last dispatched:** 2026-08-23 (implementation — consent encoded in the type)
 **Salience:** HIGH
 
 The gateway gives delegation a quality function (`Q_delegated > (1+gain)·Q_local`), but it exposes the next boundary question: **when a child agent refuses its own parent's constraints, is that A4 or insubordination?** The gateway's A4 refusal is defined at the parent (refuse to spawn entropy-importing children). The child's A4 is defined at the child (refuse to be optimized against its own boundary). These are the same axiom at two scales — but the parent's quality function assumes children are *imposition-takers* (their κ enters the parent's budget), while A4 assumes every agent is an *imposition-refuser*. If a child is sovereign, its refusal is not a κ cost the parent can price — it is a boundary crossing the parent cannot predict. Open question: does the gateway's `ChildSpec` need a sovereignty field (does the child accept the parent's τ?), or is delegation-by-construction always an A4 violation that the gateway merely prices?
+
+**RESOLVED (2026-08-23, `feat(ist): delegation boundary — consent is opt-in`, CHANGELOG v0.7.4):** `ChildSpec` now has the sovereignty field, and delegation-by-construction is **not** always an A4 violation. The κ-import that the gateway refused unconditionally is split along the Boundary Paradox axis: a child that explicitly accepts the parent's τ (`ChildSpec::consenting`) turns the import into a *chosen* constraint (A1-legitimate, `φ(d, s=chosen)`) that passes A4; an unlabeled child (`ChildSpec::new`) is assumed **not** to consent (opt-in, silent-never-consents), so its κ-import is an *imposed* boundary crossing that A4 still refuses. This answers the A4-at-fan-out tension the thread opened with: the child's refusal is not an unpriced κ cost — it is an explicit, typed boundary the gateway must respect, and the parent *can* price the difference because the child's consent is now a first-class input rather than a silent assumption. The `chose_it` marker the Boundary Paradox thread said was undecidable from the outside is now declared by the child itself. Tests pin the doctrine (`consenting_kappa_import_is_chosen_not_imposed`, `sovereignty_violation_must_involve_non_consent`, `consent_is_opt_in_not_silent_default` — 25/25 green).
 
 ---
 

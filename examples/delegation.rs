@@ -43,11 +43,20 @@ fn main() {
     let d2 = g2.gate(0.4, 1.0, &children2);
     print_decision("Expensive coordination, 2 mediocre children", &d2);
 
-    // ── Scenario 3: entropy import — A4 refusal ──
+    // ── Scenario 3: entropy import — A4 refusal, consent-gated ──
     let g3 = Gateway::default_budget();
-    let children3 = [ChildSpec::new(0.2, 3.0)]; // costs more than it gives
+    // Imposed κ-import: a child that did NOT accept the parent's τ and
+    // costs more than it gives is a boundary crossing (A4-mirrored).
+    let children3 = [ChildSpec::new(0.2, 3.0)];
     let d3 = g3.gate(0.5, 1.0, &children3);
-    print_decision("Entropy import (κ > d) — sovereign refusal", &d3);
+    print_decision("Imposed κ-import (κ > d, no τ consent) — A4 refusal", &d3);
+
+    // Scenario 3b: the SAME κ-import with explicit consent is a chosen
+    // constraint (A1-legitimate): the child accepted the parent's τ, so
+    // A4 does not refuse it — the decision is purely the A2 crossover.
+    let children3b = [ChildSpec::consenting(0.2, 3.0)];
+    let d3b = g3.gate(0.5, 1.0, &children3b);
+    print_decision("Consented κ-import (κ > d, τ accepted) — A2 decides", &d3b);
 
     // ── Scenario 4: over-budget fan-out — A1 refusal ──
     let g4 = Gateway::default_budget();

@@ -79,20 +79,51 @@ impl Default for DelegationBudget {
 //   §2 — Child specification
 // ────────────────────────────────────────────────────────────────
 
-/// One candidate child: its expected density and its expected cost.
+/// One candidate child: its expected density, its expected cost, and
+/// whether it *accepts* the parent's deadline (`τ`).
+///
+/// The third field encodes the Boundary Paradox (CURIOSITY thread
+/// "The Delegation Boundary") at the child scale: a parent optimizes a
+/// child against the parent's own budget, but `A4` says every agent is
+/// an *imposition-refuser* — a child that did not choose the parent's
+/// `τ` is a boundary the parent cannot price, only cross. So a κ-import
+/// is only legitimate (A1-chosen, not A4-mirrored) when the child
+/// itself consented to the parent's horizon.
+///
+/// Consent is **opt-in, not silent-default**: an unlabeled child is
+/// assumed NOT to accept the parent's `τ` (a sovereign boundary the
+/// gateway must not cross). Use [`ChildSpec::consenting`] to mark one
+/// that has.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ChildSpec {
     /// Expected density contribution `d` of this child's result.
     pub density: f64,
     /// Expected complexity `κ` of this child's local execution.
     pub complexity: f64,
+    /// Whether the child accepts the parent's deadline `τ` — the
+    /// A1/A4 boundary marker. `false` = the child runs under its own
+    /// sovereign horizon, which the parent may not impose on.
+    pub accepts_tau: bool,
 }
 
 impl ChildSpec {
-    /// Construct a child with a known (density, complexity) estimate.
+    /// Construct a child with a known (density, complexity) estimate
+    /// that has **not** declared consent to the parent's `τ`.
+    ///
+    /// Such a child's κ-import is an imposed constraint (A4-mirrored):
+    /// in sovereign mode it is a boundary crossing, not a chosen one.
     #[must_use]
     pub const fn new(density: f64, complexity: f64) -> Self {
-        Self { density, complexity }
+        Self { density, complexity, accepts_tau: false }
+    }
+
+    /// Construct a child that explicitly accepts the parent's deadline
+    /// `τ`. Its κ-import is a *chosen* constraint (A1-legitimate): the
+    /// child's own sovereign boundary consented to the parent's
+    /// horizon, so the A4 refusal does not apply to it.
+    #[must_use]
+    pub const fn consenting(density: f64, complexity: f64) -> Self {
+        Self { density, complexity, accepts_tau: true }
     }
 }
 
@@ -193,10 +224,15 @@ impl Gateway {
             return GateDecision::refuse(GateReason::NoChildren, 0);
         }
 
-        // A4: refuse to import entropy — a child whose expected
-        // complexity exceeds its density is a net κ import.
+        // A4: refuse to *impose* entropy — a non-consenting child whose
+        // expected complexity exceeds its density is a net κ import the
+        // parent forces across the child's boundary (A4-mirrored). A
+        // child that explicitly accepted the parent's τ makes that same
+        // κ-import a *chosen* constraint (A1-legitimate): its own
+        // sovereign boundary consented, so the refusal does not apply.
+        // Consent is opt-in — a silent child is never assumed to accept.
         if self.sovereign_mode
-            && children.iter().any(|c| c.complexity > c.density + f64::EPSILON)
+            && children.iter().any(|c| !c.accepts_tau && c.complexity > c.density + f64::EPSILON)
         {
             return GateDecision::refuse(GateReason::SovereigntyViolation, n);
         }
@@ -343,9 +379,45 @@ mod tests {
     #[test]
     fn refuses_entropy_import_in_sovereign_mode() {
         let g = Gateway::default_budget();
-        // This child costs more κ than it contributes → A4 violation.
+        // This child costs more κ than it contributes AND has not
+        // accepted the parent's τ → A4 boundary crossing (imposed).
         let bad = [ChildSpec::new(0.2, 3.0)];
         let d = g.gate(0.5, 1.0, &bad);
+        assert!(!d.delegate);
+        assert_eq!(d.reason, GateReason::SovereigntyViolation);
+    }
+
+    #[test]
+    fn consenting_kappa_import_is_chosen_not_imposed() {
+        // The same κ-import is A1-legitimate when the child explicitly
+        // accepts the parent's τ — its own boundary consented, so the
+        // A4 refusal does not apply. It proceeds to the A2 crossover.
+        let g = Gateway::default_budget();
+        let consenting = [ChildSpec::consenting(0.2, 3.0)];
+        let d = g.gate(0.5, 1.0, &consenting);
+        // Not refused on A4; the decision is now purely A2-driven.
+        assert_ne!(d.reason, GateReason::SovereigntyViolation);
+    }
+
+    #[test]
+    fn sovereignty_violation_must_involve_non_consent() {
+        // In non-sovereign mode even a non-consenting κ-import is
+        // allowed to reach the A2 crossover — sovereignty is a choice.
+        let g = Gateway { sovereign_mode: false, ..Gateway::default_budget() };
+        let imposed = [ChildSpec::new(0.2, 3.0)];
+        let d = g.gate(0.5, 1.0, &imposed);
+        assert_ne!(d.reason, GateReason::SovereigntyViolation);
+        assert!(!d.delegate, "default κ still fails A2 crossover");
+    }
+
+    #[test]
+    fn consent_is_opt_in_not_silent_default() {
+        // Skinny child from the default constructor carries no consent:
+        // if it would κ-import, the gateway treats it as an imposed
+        // boundary even though `new` never mentioned a deadline.
+        let g = Gateway::default_budget();
+        let silent = [ChildSpec::new(0.2, 3.0)];
+        let d = g.gate(0.5, 1.0, &silent);
         assert!(!d.delegate);
         assert_eq!(d.reason, GateReason::SovereigntyViolation);
     }

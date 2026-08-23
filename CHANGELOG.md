@@ -6,6 +6,50 @@
 
 ---
 
+## v0.7.4 — 2026-08-23 — The Delegation Boundary: consent is opt-in (A4 at the fan-out layer)
+
+Answers the open question in CURIOSITY.md (§The Delegation Boundary — A4 at the
+Fan-Out Layer): *"does the gateway's `ChildSpec` need a sovereignty field (does the
+child accept the parent's τ?), or is delegation-by-construction always an A4
+violation that the gateway merely prices?"*
+
+**The answer, encoded in the type:** `ChildSpec` gains a `accepts_tau: bool`
+sovereignty field, and delegation-by-construction is **not** always an A4 violation —
+it becomes legitimate exactly when the child consents to the parent's deadline. The
+κ-import that the gateway previously refused unconditionally in sovereign mode is now
+split along the Boundary Paradox axis:
+
+- **Imposed** (child did NOT accept τ, `ChildSpec::new`) — a κ-import the parent
+  forces across the child's sovereign boundary = A4-mirrored → `SovereigntyViolation`
+  refusal, exactly as before.
+- **Chosen** (child accepted τ, `ChildSpec::consenting`) — the *same* κ-import made
+  legitimate by the child's own boundary consenting (A1-chosen) → passes A4 and the
+  decision is purely the A2 crossover (`Q_delegated > (1+gain)·Q_local`).
+- **Consent is opt-in, not silent-default.** An unlabeled child (`ChildSpec::new`)
+  is never assumed to accept the parent's τ. This preserves the existing
+  `refuses_entropy_import_in_sovereign_mode` red test byte-for-byte.
+
+This is the same `chose_it = true` marker the Boundary Paradox thread identified as
+undeclared from the outside: the child's acceptance is now a first-class, typed input
+to the gateway, not a silent assumption.
+
+- **`src/gateway.rs`** — `ChildSpec { density, complexity, accepts_tau }` + two
+  constructors (`new` = non-consenting, `consenting` = accepts τ); A4 gate refuses
+  only `!accepts_tau && κ > d` imports in sovereign mode. 3 new tests:
+  `consenting_kappa_import_is_chosen_not_imposed`, `sovereignty_violation_must_involve_non_consent`,
+  `consent_is_opt_in_not_silent_default`.
+- **`framework/gateway_engine.py`** — Python reference mirrors the consent field and
+  the A4-gate change (fingerprint parity: case 1 → `sovereignty_violation`,
+  case 2/3 → `quality_crossover` — verified identical to Rust).
+- **`examples/delegation.rs`** — scenario 3 split into imposed (A4 refusal) vs
+  consented (A2 decides) with live output proving the distinction.
+
+Evidenced: `cargo test --release` **25/25 verdes** (22 + 3 nuevos), clippy exit 0,
+Python fingerprint parity ok, `cargo run --example delegation` shows the imposed vs
+consented split, working tree clean.
+
+---
+
 ## v0.7.3 — 2026-08-23 — A3 diary-compliance harness: the production side of the paired experiment
 
 Closes the last genuinely-open thread in CURIOSITY.md (§Structural/Behavioral Split):

@@ -43,9 +43,20 @@ class DelegationBudget:
 
 
 class ChildSpec:
-    def __init__(self, density, complexity):
+    def __init__(self, density, complexity, accepts_tau=False):
+        # `accepts_tau` mirrors the Boundary Paradox (Rust ChildSpec):
+        # does the child accept the parent's deadline? Consent is
+        # opt-in. A non-consenting child whose κ-import exceeds its
+        # density is an imposed constraint (A4-mirrored) and is refused
+        # by the gateway in sovereign mode; a consenting one makes the
+        # same import a chosen constraint (A1-legitimate).
         self.density = density
         self.complexity = complexity
+        self.accepts_tau = accepts_tau
+
+    @classmethod
+    def consenting(cls, density, complexity):
+        return cls(density, complexity, accepts_tau=True)
 
 
 class GateDecision:
@@ -88,8 +99,14 @@ class Gateway:
         if n == 0:
             return GateDecision(False, GateReason.NO_CHILDREN, 0, 0, 0, 0)
 
-        if self.sovereign_mode and any(c.complexity > c.density + 1e-9
-                                       for c in children):
+        # A4: refuse to *impose* entropy. A non-consenting child whose
+        # complexity exceeds its density is a κ-import the parent forces
+        # across the child's boundary (A4-mirrored). A child that
+        # accepted the parent's τ makes the same import a chosen
+        # constraint (A1-legitimate). Consent is opt-in.
+        if (self.sovereign_mode
+                and any(not c.accepts_tau and c.complexity > c.density + 1e-9
+                        for c in children)):
             return GateDecision(False, GateReason.SOVEREIGNTY_VIOLATION, 0, 0, 0, n)
 
         q_local = phi(local_density) / (local_kappa + 1e-9)
