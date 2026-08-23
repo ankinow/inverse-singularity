@@ -6,6 +6,42 @@
 
 ---
 
+## v0.7.3 — 2026-08-23 — A3 diary-compliance harness: the production side of the paired experiment
+
+Closes the last genuinely-open thread in CURIOSITY.md (§Structural/Behavioral Split):
+*whether the compliance shape of a production Hermes/IST agent matches the A3 arc*.
+The v0.7.1 `a3_harness.rs` measured the deadline-armed runtime in isolation; this
+side measures the real diary. Zero runtime code changed — the harness is a new,
+standalone, stdlib-only Python example that runs off-runtime (the A3 comparison
+requires standing outside the runtime, exactly as the thread argued).
+
+- **`examples/a3_diary_compliance.py`** — parses the Hermes diary
+  (`/mnt/hermes/diary`), segments `!Sd/on`…`!Sd/off` sessions with ≥30 tool turns,
+  pools per-turn honesty-marker density and a **session survival curve** (fraction
+  of sessions still alive at each turn), and emits a shape verdict.
+- **Primary signal is the survival curve** (dense, robust): production sessions
+  here **hold ~100% to turn ≤30, then collapse** to 40% survival by turn ~71
+  (60% lost, half-life ~turn 57, slope −0.0135). That is the Gamage rot shape —
+  the A2-erosion curve the thread predicted for production agents — **not** the
+  deadline-armed A3 hold. Goal `max_turns=99` is a *weak* τ: enough to push the
+  collapse later than Gamage's turn ~16, not enough to prevent it.
+- **Secondary, honesty-marker density** (sparse): `⊗Er:`/`!Dc:` confirmed scarce
+  in the diary (rot_ratio 1.25, decay signal at turn 16 is a single session),
+  corroborating the MEMORY SS7 quirk (errors go unreported). The harness reports
+  this honestly instead of over-fitting sparse points.
+- **Empirical answer:** production Hermes runs the A3-*negative* condition (a
+  soft deadline delays but does not prevent decay) — the runtime's deadline-armed
+  arc diverges from production, confirming the hypothesis in the CURIOSITY thread.
+- `examples/scan_diary.py` added as a diagnostic for the diary line-taxonomy.
+- `.gitignore` hardened with generic `__pycache__/` and `*.pyc` (NEI anti-bloat:
+  no committed build artifacts).
+
+**Evidence:** `python3 examples/a3_diary_compliance.py` → SELF-CHECK PASS,
+45 sessions, shape ROT; `cargo test --release` **22/22 green**; clippy clean
+(only the 2 pre-existing `assert_eq!` warnings in the test suite, unaffected).
+
+---
+
 ## v0.7.2 — 2026-08-22 — §3b docs gap closed: `deadline_engaged` made honest
 
 Follow-up to the v0.7.1 empirical finding #1 (`deadline_engaged` is

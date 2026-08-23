@@ -98,6 +98,8 @@ Structural discoveries worth carrying on:
 
 Still open (genuinely outside one runtime): whether the *compliance shape* of a production Hermes/IST agent matches this arc (pair a real decaying session against the deadline-armed render). `Step.quality` stays deadline-blind by design (both agents report identical 0.9273/1.0000 quality_stability) — A3 remains behavioral, not folded into A2.
 
+**EMPIRICALLY ANSWERED (2026-08-23, `examples/a3_diary_compliance.py`, v0.7.3):** the production side is now measured. Parsing the real Hermes diary (`/mnt/hermes/diary`, 45 sessions with ≥30 tool turns), the **session survival curve** — fraction of sessions still alive per turn — holds ~100% to turn ≤30 then collapses to 40% by turn ~71 (60% lost, half-life ~turn 57, slope −0.0135). That is the **Gamage rot shape (A2 erosion), NOT the deadline-armed A3 hold**. Production Hermes runs the A3-*negative* condition: `goals.max_turns=99` is a weak τ that delays the collapse (later than Gamage's ~turn 16) but does not prevent it. The runtime's deadline-armed arc (NEI rises as t→τ) therefore **diverges from production** — exactly the hypothesis this thread left open. The mistake would be to read this as failure: production agents *have* no real τ, so A3 correctly does not apply; the harness confirms A3 is a claim about a system *with* a structural deadline, not a universal law of agent decay.
+
 ---
 
 ### The Boundary Paradox
