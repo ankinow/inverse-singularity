@@ -85,6 +85,19 @@ Three of four axioms may be type-enforceable. A1 already is (`#![forbid(unsafe_c
 
 What remains *not* closed: the empirical question (does the runtime's compliance shape actually hold while a production agent decays — the paired N=1 vs control) is still untestable from inside one runtime. The function gives the *apparatus*; a comparison harness off-runtime is still open. Also open: whether `Step.quality` should fold ∇ (A3 subsumed — the thread's "third option") or stay deadline-blind honest. Current code keeps them separate.
 
+**RESOLVED (2026-08-22, `examples/a3_harness.rs` commit):** the comparison harness now runs off-runtime (`cargo run --release --example a3_harness`). Paired N=1 over a shared input stream: deadline agent (τ=7) vs no-deadline control (τ=1024; `tuned` forbids τ=0). Two regimes — constant input (mechanism test) and decaying input (context rot / Gamage curve, falsification test). Verdicts gate the exit code; a false claim returns 1.
+
+Empirical finding — **A3 holds**:
+- Mechanism: const input, deadline NEI rises +0.105→+0.630 (6.00× retention) as ∇ grows toward t=τ; control flat (1.00).
+- Separation: `urgency_slope` A=0.143 vs C=0.001 — the only honest deadline-vs-horizon separator.
+- Rescue: decaying input, deadline retains 4.84× NEI (∇ overpowers −30% density decay); control decays to 0.81×.
+
+Structural discoveries worth carrying on:
+1. **`deadline_engaged` is window-local and cannot separate a real deadline from a far horizon**: the τ=1024 control also reports `engaged=1` inside a short window, because any monotone tick looks like a deadline. Use `urgency_slope` instead (it is the gradient). This is a §3b documentation gap — the `deadline_engaged` docstring says "engaged" but its single-window semantics are weaker than implied; consider tightening it.
+2. **A window spanning the τ-wrap hides the convergence peak**: after τ evolutions `t` resets to 0 and ∇ returns to its load point. The first harness draft (STEPS=7, τ=7) spanned the wrap and *honestly falsified* A3 (NEI fell 0.105→0.090); the exit-code gate caught it. Correct observation window ends at t=τ−1.
+
+Still open (genuinely outside one runtime): whether the *compliance shape* of a production Hermes/IST agent matches this arc (pair a real decaying session against the deadline-armed render). `Step.quality` stays deadline-blind by design (both agents report identical 0.9273/1.0000 quality_stability) — A3 remains behavioral, not folded into A2.
+
 ---
 
 ### The Boundary Paradox

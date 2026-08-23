@@ -6,6 +6,43 @@
 
 ---
 
+## v0.7.1 — 2026-08-22 — A3 comparison harness (the missing control)
+
+Closes the open empirical question in CURIOSITY.md "Structural/Behavioral
+Split" (raised 2026-06-23): *"the control group doesn't exist in the
+codebase — no `--no-deadline` mode, no comparison harness, no paired
+experiment."* `analyze_trajectory` (v0.7.0) supplied the *apparatus*; this
+release supplies the *control*.
+
+### Runtime (Rust primary)
+
+- **`examples/a3_harness.rs` added — the A3 paired N=1 comparison harness.**
+  Runs one shared input stream through two agents: the deadline-constrained
+  agent (τ=7) and the no-deadline control (τ=1024, the axiom forbidding a
+  true τ=0). Sweeps two regimes — constant input (classic 7-day collapse,
+  pure mechanism test) and decaying input (context rot / the Gamage curve,
+  falsification test). Verdicts are falsifiable and gate the exit code.
+
+### Empirical result saved
+
+| Claim | Outcome |
+|---|---|
+| A3 mechanism (const input): deadline NEI rises as t→τ | PASS — A +0.105→+0.630 (retention 6.00×); C flat (1.00) |
+| A3 separation: `urgency_slope` A≫C | PASS — A=0.143, C=0.001 (the honest separator) |
+| A3 rescue (context rot): deadline holds NEI better | PASS — A retention 4.84×, C 0.81× (∇ overpowers −30% decay) |
+
+Two structural discoveries:
+1. **`deadline_engaged` cannot separate a real deadline from a far horizon
+   within a single window** — any finite-τ agent that ticks forward shows a
+   monotone urgency run, so the control (τ=1024, never wraps in-window)
+   also reports `engaged=1`. The honest separator is `urgency_slope` (the
+   gradient), which `analyze_trajectory` already exposes.
+2. **A window that spans the τ-wrap hides the deadline** — after τ
+   evolutions `t` resets to 0 and ∇ returns to its *load* point. To observe
+   the convergence peak you must stop *at* t=τ−1. The first harness draft
+   spanned the wrap and *honestly falsified* A3 (0.105→0.090) — a correct
+   failure that the falsifiable exit code caught before the window fix.
+
 ## v0.7.0 — 2026-08-14 — Delegation Gateway + A2-canonical quality
 
 **The delegation release.** Answers the CURIOSITY.md "κ Proliferation"
