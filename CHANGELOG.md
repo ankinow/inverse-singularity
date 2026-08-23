@@ -6,6 +6,31 @@
 
 ---
 
+## v0.7.6 — 2026-08-23 — A3 self-adaptive τ proven in-runtime (control group for the budget knob)
+
+Turns the v0.7.5 budget recommendation into a committed Rust control group. Where
+v0.7.5 *proposed* the self-adaptive τ from a diary statistic, v0.7.6 *proves* it in the
+actual A3 mechanism:
+
+- **`examples/a3_adaptive_budget.rs`** — paired N=1 on the shared **production-rot input
+  shape** (density decays to the measured ~0.48 alive fraction across the half-life
+  window, κ fixed): **adaptive τ=55** (measured half-life — "the agent that knows its own
+  half-life") vs **far ceiling τ=999** (the current production knob). Exit gates the
+  falsifiable claim `retention_A >= retention_P`.
+- **Verdict:** `adaptive_holds: PASS` — retention **A(τ=55)=31.54× vs P(τ=999)=0.62×**.
+  The adaptive deadline's NEI *rises* through the rot arc (0.0117→0.3680) under
+  convergence pressure (urgency_slope 0.0182); the far ceiling decays with the raw input
+  (0.0006→0.0004, urgency_slope 0.0010). The 999-turn ceiling is not merely a weak τ — it
+  is **~51× worse retention** than the self-adaptive half-life deadline.
+- **CURIOSITY.md** — the A3 thread gains an IN-RUNTIME PROOF entry; the circle closes:
+  v0.7.3 measured the decay, v0.7.5 turned it into a budget decision, v0.7.6 proves the
+  decision works in the runtime.
+- **Evidence:** `cargo run --release --example a3_adaptive_budget` → PASS, retention
+  31.54 vs 0.62; `cargo test --release` **25/25 verdes**; clippy no new warnings on the
+  example.
+
+---
+
 ## v0.7.5 — 2026-08-23 — A3-productive-τ: effective half-life vs the budget knob
 
 Closes the actionable gap left by the v0.7.3 empirical finding (production sessions
