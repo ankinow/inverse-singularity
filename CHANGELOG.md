@@ -6,6 +6,25 @@
 
 ---
 
+## v0.7.2 — 2026-08-22 — §3b docs gap closed: `deadline_engaged` made honest
+
+Follow-up to the v0.7.1 empirical finding #1 (`deadline_engaged` is
+window-local and cannot separate a real deadline from a far horizon).
+The docstring over-claimed — it said "A3 engaged" for a one-cycle run
+that any ticking forward (even a far τ control) produces.
+
+- **`TrajectoryReport.deadline_engaged` docstring is now intentionally
+  honest** about its single-monotone-run scope, and explicitly directs
+  consumers to `urgency_slope` (the gradient) for any A3 claim. This is
+  the §3b documentation gap the v0.7.1 run surfaced.
+- **New test `deadline_engaged_is_not_an_a3_separator` pins the doctrine
+  in code**: both a τ=7 (near) and a τ=1024 (far horizon) arc fire
+  `engaged=1`, and only `urgency_slope` separates them (near >0.1 vs far
+  <0.002 — an order of magnitude). Future changes can't silently re-introduce
+  the misleading "engaged ⇒ deadline" implication.
+- No behavioral change to the algorithm; `urgency_slope` was always the
+  honest A3 signal (the harness already keyed on it).
+
 ## v0.7.1 — 2026-08-22 — A3 comparison harness (the missing control)
 
 Closes the open empirical question in CURIOSITY.md "Structural/Behavioral

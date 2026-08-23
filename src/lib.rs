@@ -315,9 +315,24 @@ pub struct TrajectoryReport {
     /// The NEI score embeds ∇, so under a real deadline this should be
     /// positive — the arc *converges to a better model* as t→τ (A3).
     pub focus_delta: f64,
-    /// `0` if the arc shows no deadline pressure (A3 inert),
-    /// `1` if urgency is strictly decreasing for at least one full
-    /// cycle (A3 engaged).
+    /// WINDOW-LOCAL monotone-deadline detector (see §3b gap note below).
+    ///
+    /// `0` if the arc contains no monotone urgency descent; `1` if
+    /// urgency is strictly decreasing across at least one adjacent pair
+    /// (run length ≥ 2) inside the window.
+    ///
+    /// ⚠️ **Scope warning (docstring is intentionally honest):** this
+    /// flag is single-window and *cannot separate a real deadline from a
+    /// far horizon*. Any ticking forward produces a (possibly tiny)
+    /// monotone urgency descent, so even a no-deadline control with a
+    /// far τ reports `engaged = 1` within a short window — the τ=1024
+    /// control in `examples/a3_harness.rs` does exactly that which is
+    /// why the harness's A3-separation verdict keys on `urgency_slope`
+    /// (the gradient), not on this flag. Do **not** use `deadline_engaged`
+    /// alone to assert A3; prefer `urgency_slope > 0` for that claim.
+    ///
+    /// ([Structural/Behavioral Split → A3, §3b documentation gap —
+    /// CURIOSITY 2026-08-22])
     pub deadline_engaged: u8,
 }
 
@@ -538,6 +553,47 @@ mod tests {
         // NEI score rises as t→τ (focus gradient) → focus_delta positive.
         assert!(tr.focus_delta > 0.0, "focus_delta={:.6}", tr.focus_delta);
         assert_eq!(tr.deadline_engaged, 1);
+    }
+
+    #[test]
+    fn deadline_engaged_is_not_an_a3_separator() {
+        // §3b documentation gap (CURIOSITY 2026-08-22): `deadline_engaged`
+        // is a WINDOW-LOCAL monotone detector. Any ticking forward — even
+        // a far horizon with a tiny slope — produces a monotone urgency
+        // descent, so it cannot separate a real (near) deadline from a
+        // no-deadline control. That job belongs to `urgency_slope` (the
+        // gradient). This test pins that doctrine in the code so the
+        // docstring warning cannot silently regress.
+        //
+        // Build two arcs that both tick forward (t: 1→6) and both fire
+        // engaged=1, but with very different urgency descent magnitude:
+        // a near deadline (τ=7, urgency 1.0→~0.14) vs a far horizon
+        // (τ=1024, urgency 1.0→~0.994).
+        let near: Vec<Step> = (1u32..=6).map(|t| Step {
+            quality: 1.0,
+            nei_score: 10.0,
+            urgency: 1.0 - (t as f64 / 7.0),
+            t,
+        }).collect();
+        let far: Vec<Step> = (1u32..=6).map(|t| Step {
+            quality: 1.0,
+            nei_score: 10.0,
+            urgency: 1.0 - (t as f64 / 1024.0),
+            t,
+        }).collect();
+
+        let near_tr = analyze_trajectory(&near);
+        let far_tr = analyze_trajectory(&far);
+
+        // Both fire the (window-local) monotone flag — the very ambiguity
+        // the §3b finding names.
+        assert_eq!(near_tr.deadline_engaged, 1);
+        assert_eq!(far_tr.deadline_engaged, 1);
+        // ...but the gradient separates them by an order of magnitude,
+        // which is why `urgency_slope` (not `engaged`) is the honest A3
+        // separator named in the §3b finding.
+        assert!(near_tr.urgency_slope > 0.1, "near slope={:.4}", near_tr.urgency_slope);
+        assert!(far_tr.urgency_slope < 0.002, "far slope={:.6}", far_tr.urgency_slope);
     }
 
     #[test]
