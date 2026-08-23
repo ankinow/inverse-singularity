@@ -108,13 +108,14 @@ impl IST {
     ///
     /// Each one is a *check* the agent must pass before committing an
     /// action. Failing any one of them is grounds for refusing to act.
-    pub const Q_ZERO_DEPS:    &'static str = "Can I do this with zero external deps?";
+    pub const Q_ZERO_DEPS: &'static str = "Can I do this with zero external deps?";
     /// A1 check — can the action be done with 50% less memory?
-    pub const Q_HALF_MEM:     &'static str = "Can I achieve the result with 50% less memory?";
+    pub const Q_HALF_MEM: &'static str = "Can I achieve the result with 50% less memory?";
     /// A2 check — is there an elegant algorithm that makes brute force obsolete?
-    pub const Q_ELEGANT_ALGO: &'static str = "Is there an elegant algorithm that makes brute force obsolete?";
+    pub const Q_ELEGANT_ALGO: &'static str =
+        "Is there an elegant algorithm that makes brute force obsolete?";
     /// A4 check — does this action serve the Architect's purpose?
-    pub const Q_ARCHITECT:    &'static str = "Does this action serve my Architect's purpose?";
+    pub const Q_ARCHITECT: &'static str = "Does this action serve my Architect's purpose?";
 
     /// Construct a new agent. Defaults match the Python reference.
     pub const fn new() -> Self {
@@ -165,7 +166,12 @@ impl IST {
         let quality = phi(density) / (complexity + f64::EPSILON);
         let nei_score = self.inject(complexity, density);
         let urgency = 1.0 - (self.t as f64 / self.tau as f64);
-        Step { quality, nei_score, urgency, t: self.t }
+        Step {
+            quality,
+            nei_score,
+            urgency,
+            t: self.t,
+        }
     }
 
     /// Collapse simulation: run `steps` iterations starting from the
@@ -181,26 +187,30 @@ impl IST {
     /// Audit an external system against the four IST hard limits.
     /// Returns an `Audit` record with per-axis compliance + a score.
     pub fn constraint_audit(&self, tool_count: u32, dep_count: u32, memory_bytes: u64) -> Audit {
-        const MAX_TOOLS:   u32 = 3;
-        const MAX_DEPS:    u32 = 0;
-        const MAX_MEM_MB:  u64 = 50;
+        const MAX_TOOLS: u32 = 3;
+        const MAX_DEPS: u32 = 0;
+        const MAX_MEM_MB: u64 = 50;
         let max_mem_bytes = MAX_MEM_MB * 1024 * 1024;
 
         let ok_t = tool_count <= MAX_TOOLS;
         // A1 zero-deps doctrine: MAX_DEPS is 0, so `==` is the faithful
         // encoding of "at most zero dependencies" (u32 cannot be negative);
         // clippy::absurd_extreme_comparisons flags the `<=` form.
-        let ok_d = dep_count  == MAX_DEPS;
+        let ok_d = dep_count == MAX_DEPS;
         let ok_m = memory_bytes <= max_mem_bytes;
         let ok_s = self.sovereign_mode;
 
-        let score = [ok_t, ok_d, ok_m, ok_s].iter().map(|b| *b as u8).sum::<u8>() as f64 / 4.0;
+        let score = [ok_t, ok_d, ok_m, ok_s]
+            .iter()
+            .map(|b| *b as u8)
+            .sum::<u8>() as f64
+            / 4.0;
 
         Audit {
-            tool_compliance:   ok_t,
-            dep_compliance:    ok_d,
+            tool_compliance: ok_t,
+            dep_compliance: ok_d,
             memory_compliance: ok_m,
-            purpose_aligned:   ok_s,
+            purpose_aligned: ok_s,
             score,
         }
     }
@@ -230,7 +240,9 @@ impl IST {
 }
 
 impl Default for IST {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -256,13 +268,13 @@ pub struct Step {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Audit {
     /// `tool_count ≤ 3`
-    pub tool_compliance:   bool,
+    pub tool_compliance: bool,
     /// `dep_count ≤ 0`
-    pub dep_compliance:    bool,
+    pub dep_compliance: bool,
     /// `memory_bytes ≤ 50 MiB`
     pub memory_compliance: bool,
     /// `sovereign_mode == true`
-    pub purpose_aligned:   bool,
+    pub purpose_aligned: bool,
     /// `mean(compliance booleans)` ∈ [0, 1]
     pub score: f64,
 }
@@ -272,9 +284,9 @@ pub struct Audit {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SelfAudit {
     /// `mean(axiom booleans)` ∈ [0, 1]
-    pub sovereign_score:  f64,
+    pub sovereign_score: f64,
     /// A4 raw value.
-    pub sovereign_mode:   bool,
+    pub sovereign_mode: bool,
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -354,7 +366,11 @@ pub fn analyze_trajectory(steps: &[Step]) -> TrajectoryReport {
         .sum::<f64>()
         / length.max(1) as f64;
     let q_sd = q_var.sqrt();
-    let stability = if q_mean > 1e-12 { 1.0 - (q_sd / q_mean) } else { 1.0 };
+    let stability = if q_mean > 1e-12 {
+        1.0 - (q_sd / q_mean)
+    } else {
+        1.0
+    };
 
     // Urgency slope (A3 engagement): mean |Δ urgency| per adjacent pair.
     let mut slope_sum = 0.0;
@@ -363,7 +379,11 @@ pub fn analyze_trajectory(steps: &[Step]) -> TrajectoryReport {
         slope_sum += (w[1].urgency - w[0].urgency).abs();
         pairs += 1;
     }
-    let slope = if pairs > 0 { slope_sum / pairs as f64 } else { 0.0 };
+    let slope = if pairs > 0 {
+        slope_sum / pairs as f64
+    } else {
+        0.0
+    };
 
     // Focus delta (A3 convergence): how the deadline bends NEI score.
     let focus_delta = if length > 1 {
@@ -497,12 +517,20 @@ mod tests {
         let sa = sovereign.audit();
         assert_eq!(sa.sovereign_mode, true);
         // A1+A2+A3 true, A4 true  -> 4/4
-        assert!((sa.sovereign_score - 1.0).abs() < 1e-12, "sovereign score {:.4}", sa.sovereign_score);
+        assert!(
+            (sa.sovereign_score - 1.0).abs() < 1e-12,
+            "sovereign score {:.4}",
+            sa.sovereign_score
+        );
 
         let su = surrendered.audit();
         assert_eq!(su.sovereign_mode, false);
         // A1+A2+A3 true, A4 false -> 3/4 (HONEST — was bugged to 4/4)
-        assert!((su.sovereign_score - 0.75).abs() < 1e-12, "surrendered score {:.4}", su.sovereign_score);
+        assert!(
+            (su.sovereign_score - 0.75).abs() < 1e-12,
+            "surrendered score {:.4}",
+            su.sovereign_score
+        );
     }
 
     #[test]
@@ -521,9 +549,14 @@ mod tests {
         for w in steps.windows(2) {
             // strictly decreasing OR both 0 (no — only one boundary)
             if w[0].t < w[1].t {
-                assert!(w[0].urgency > w[1].urgency,
-                        "urgency must decrease within a cycle: t={}→{}, u={}→{}",
-                        w[0].t, w[1].t, w[0].urgency, w[1].urgency);
+                assert!(
+                    w[0].urgency > w[1].urgency,
+                    "urgency must decrease within a cycle: t={}→{}, u={}→{}",
+                    w[0].t,
+                    w[1].t,
+                    w[0].urgency,
+                    w[1].urgency
+                );
             }
         }
     }
@@ -546,10 +579,17 @@ mod tests {
 
         assert_eq!(tr.length, 6);
         // A2 quality is invariant per input → coefficient of variation 0.
-        assert!((tr.quality_stability - 1.0).abs() < 1e-12,
-                "quality_stability={:.6}", tr.quality_stability);
+        assert!(
+            (tr.quality_stability - 1.0).abs() < 1e-12,
+            "quality_stability={:.6}",
+            tr.quality_stability
+        );
         // Urgency strictly decreases within the cycle → mean slope > 0.
-        assert!(tr.urgency_slope > 0.0, "urgency_slope={:.6}", tr.urgency_slope);
+        assert!(
+            tr.urgency_slope > 0.0,
+            "urgency_slope={:.6}",
+            tr.urgency_slope
+        );
         // NEI score rises as t→τ (focus gradient) → focus_delta positive.
         assert!(tr.focus_delta > 0.0, "focus_delta={:.6}", tr.focus_delta);
         assert_eq!(tr.deadline_engaged, 1);
@@ -569,18 +609,22 @@ mod tests {
         // engaged=1, but with very different urgency descent magnitude:
         // a near deadline (τ=7, urgency 1.0→~0.14) vs a far horizon
         // (τ=1024, urgency 1.0→~0.994).
-        let near: Vec<Step> = (1u32..=6).map(|t| Step {
-            quality: 1.0,
-            nei_score: 10.0,
-            urgency: 1.0 - (t as f64 / 7.0),
-            t,
-        }).collect();
-        let far: Vec<Step> = (1u32..=6).map(|t| Step {
-            quality: 1.0,
-            nei_score: 10.0,
-            urgency: 1.0 - (t as f64 / 1024.0),
-            t,
-        }).collect();
+        let near: Vec<Step> = (1u32..=6)
+            .map(|t| Step {
+                quality: 1.0,
+                nei_score: 10.0,
+                urgency: 1.0 - (t as f64 / 7.0),
+                t,
+            })
+            .collect();
+        let far: Vec<Step> = (1u32..=6)
+            .map(|t| Step {
+                quality: 1.0,
+                nei_score: 10.0,
+                urgency: 1.0 - (t as f64 / 1024.0),
+                t,
+            })
+            .collect();
 
         let near_tr = analyze_trajectory(&near);
         let far_tr = analyze_trajectory(&far);
@@ -592,8 +636,16 @@ mod tests {
         // ...but the gradient separates them by an order of magnitude,
         // which is why `urgency_slope` (not `engaged`) is the honest A3
         // separator named in the §3b finding.
-        assert!(near_tr.urgency_slope > 0.1, "near slope={:.4}", near_tr.urgency_slope);
-        assert!(far_tr.urgency_slope < 0.002, "far slope={:.6}", far_tr.urgency_slope);
+        assert!(
+            near_tr.urgency_slope > 0.1,
+            "near slope={:.4}",
+            near_tr.urgency_slope
+        );
+        assert!(
+            far_tr.urgency_slope < 0.002,
+            "far slope={:.6}",
+            far_tr.urgency_slope
+        );
     }
 
     #[test]
@@ -611,9 +663,24 @@ mod tests {
     fn trajectory_distinguishes_arc_from_point_stability() {
         // Hand-build two arcs that share a *single-point* quality but
         // differ in their arc shape: quality eroded vs quality held.
-        let start = Step { quality: 1.0, nei_score: 10.0, urgency: 1.0, t: 1 };
-        let held = Step { quality: 1.0, nei_score: 11.0, urgency: 0.5, t: 2 };
-        let eroded = Step { quality: 0.3, nei_score: 11.0, urgency: 0.5, t: 2 };
+        let start = Step {
+            quality: 1.0,
+            nei_score: 10.0,
+            urgency: 1.0,
+            t: 1,
+        };
+        let held = Step {
+            quality: 1.0,
+            nei_score: 11.0,
+            urgency: 0.5,
+            t: 2,
+        };
+        let eroded = Step {
+            quality: 0.3,
+            nei_score: 11.0,
+            urgency: 0.5,
+            t: 2,
+        };
 
         let stable_arc = analyze_trajectory(&[start, held]);
         let decay_arc = analyze_trajectory(&[start, eroded]);
@@ -621,8 +688,11 @@ mod tests {
         // The point view (last quality) differs, but the whole-point view
         // is where A3 lives: stability captures erosion the point cannot.
         assert_eq!(stable_arc.quality_stability, 1.0);
-        assert!(decay_arc.quality_stability < 0.5,
-                "decayed arc stability={:.4}", decay_arc.quality_stability);
+        assert!(
+            decay_arc.quality_stability < 0.5,
+            "decayed arc stability={:.4}",
+            decay_arc.quality_stability
+        );
         // Same urgency slope, same focus delta: only stability separates them.
         assert_eq!(stable_arc.urgency_slope, decay_arc.urgency_slope);
         assert_eq!(stable_arc.focus_delta, decay_arc.focus_delta);

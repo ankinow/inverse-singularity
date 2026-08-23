@@ -14,8 +14,10 @@ fn main() {
     let lambdas: &[f64] = &[0.0, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0];
     let taus: &[u32] = &[0, 1, 3, 7, 14, 28];
 
-    println!("  λ↓ / τ→   {:>5} {:>5} {:>5} {:>5} {:>5} {:>5}",
-             taus[0], taus[1], taus[2], taus[3], taus[4], taus[5]);
+    println!(
+        "  λ↓ / τ→   {:>5} {:>5} {:>5} {:>5} {:>5} {:>5}",
+        taus[0], taus[1], taus[2], taus[3], taus[4], taus[5]
+    );
     println!("  {:-<40}", "");
 
     for &lambda in lambdas {
@@ -50,7 +52,8 @@ fn main() {
         let result = IST::tuned(*lambda, *tau);
         println!(
             "  tuned(λ={}, τ={}) -> {}  // {}",
-            lambda, tau,
+            lambda,
+            tau,
             if result.is_some() { "Some" } else { "None" },
             why
         );
@@ -61,7 +64,12 @@ fn main() {
     for tau in 1..=10 {
         let agent = IST::tuned(0.1, tau).unwrap();
         let s = agent.inject(0.5, 0.85);
-        println!("  τ={:>2}  IST={:.5}  urgency(t=0)={:.4}", tau, s, 1.0 / (tau as f64 + f64::EPSILON));
+        println!(
+            "  τ={:>2}  IST={:.5}  urgency(t=0)={:.4}",
+            tau,
+            s,
+            1.0 / (tau as f64 + f64::EPSILON)
+        );
     }
 
     println!();

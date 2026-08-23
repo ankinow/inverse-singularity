@@ -7,7 +7,7 @@
 //! outputs must agree to within the ε floor. This is the fingerprint
 //! check for the delegation layer.
 
-use ist::gateway::{ChildSpec, DelegationBudget, Gateway, GateReason};
+use ist::gateway::{ChildSpec, DelegationBudget, GateReason, Gateway};
 
 fn main() {
     println!("IST Delegation Gateway — The A2 Crossover");
@@ -36,10 +36,7 @@ fn main() {
         ..DelegationBudget::default()
     };
     let g2 = Gateway::new(expensive);
-    let children2 = [
-        ChildSpec::new(0.5, 0.1),
-        ChildSpec::new(0.5, 0.1),
-    ];
+    let children2 = [ChildSpec::new(0.5, 0.1), ChildSpec::new(0.5, 0.1)];
     let d2 = g2.gate(0.4, 1.0, &children2);
     print_decision("Expensive coordination, 2 mediocre children", &d2);
 
@@ -66,16 +63,20 @@ fn main() {
 
     println!("──────────────────────────────────────────────");
     let audit = g1.audit();
-    println!("Gateway audit: sovereign_score={:.3} sovereign_mode={}",
-             audit.sovereign_score, audit.sovereign_mode);
+    println!(
+        "Gateway audit: sovereign_score={:.3} sovereign_mode={}",
+        audit.sovereign_score, audit.sovereign_mode
+    );
     println!("\"Delegation is a constraint, not a capability.\"");
 }
 
 fn print_decision(label: &str, d: &ist::gateway::GateDecision) {
     println!();
     println!("{label}");
-    println!("  children={}  Q_local={:.4}  Q_deleg={:.4}  κ_sys={:.4}",
-             d.children, d.q_local, d.q_delegated, d.kappa_system);
+    println!(
+        "  children={}  Q_local={:.4}  Q_deleg={:.4}  κ_sys={:.4}",
+        d.children, d.q_local, d.q_delegated, d.kappa_system
+    );
     let verdict = match d.reason {
         GateReason::Allowed => "✓ DELEGATE",
         GateReason::NoChildren => "✗ refuse (no children)",

@@ -114,7 +114,11 @@ impl ChildSpec {
     /// in sovereign mode it is a boundary crossing, not a chosen one.
     #[must_use]
     pub const fn new(density: f64, complexity: f64) -> Self {
-        Self { density, complexity, accepts_tau: false }
+        Self {
+            density,
+            complexity,
+            accepts_tau: false,
+        }
     }
 
     /// Construct a child that explicitly accepts the parent's deadline
@@ -123,7 +127,11 @@ impl ChildSpec {
     /// horizon, so the A4 refusal does not apply to it.
     #[must_use]
     pub const fn consenting(density: f64, complexity: f64) -> Self {
-        Self { density, complexity, accepts_tau: true }
+        Self {
+            density,
+            complexity,
+            accepts_tau: true,
+        }
     }
 }
 
@@ -150,7 +158,11 @@ impl Gateway {
     /// reference (`framework/gateway_engine.py`).
     #[must_use]
     pub const fn new(budget: DelegationBudget) -> Self {
-        Self { budget, t: 0, sovereign_mode: true }
+        Self {
+            budget,
+            t: 0,
+            sovereign_mode: true,
+        }
     }
 
     /// Construct a gateway with default budget.
@@ -164,9 +176,7 @@ impl Gateway {
     #[inline]
     #[must_use]
     pub fn system_kappa(&self, local_kappa: f64, children: u32) -> f64 {
-        local_kappa
-            + (children as f64) * self.budget.coordination_kappa
-            + self.budget.merge_kappa
+        local_kappa + (children as f64) * self.budget.coordination_kappa + self.budget.merge_kappa
     }
 
     /// A3 urgency: the fraction of the deadline that remains.
@@ -232,7 +242,9 @@ impl Gateway {
         // sovereign boundary consented, so the refusal does not apply.
         // Consent is opt-in — a silent child is never assumed to accept.
         if self.sovereign_mode
-            && children.iter().any(|c| !c.accepts_tau && c.complexity > c.density + f64::EPSILON)
+            && children
+                .iter()
+                .any(|c| !c.accepts_tau && c.complexity > c.density + f64::EPSILON)
         {
             return GateDecision::refuse(GateReason::SovereigntyViolation, n);
         }
@@ -265,14 +277,18 @@ impl Gateway {
         let a2 = self.budget.coordination_kappa >= 0.0 && self.budget.merge_kappa >= 0.0;
         let a3 = self.budget.tau >= 1;
         let a4 = self.sovereign_mode;
-        let sovereign_score =
-            [a1, a2, a3, a4].iter().map(|b| *b as u8).sum::<u8>() as f64 / 4.0;
-        GatewayAudit { sovereign_score, sovereign_mode: a4 }
+        let sovereign_score = [a1, a2, a3, a4].iter().map(|b| *b as u8).sum::<u8>() as f64 / 4.0;
+        GatewayAudit {
+            sovereign_score,
+            sovereign_mode: a4,
+        }
     }
 }
 
 impl Default for Gateway {
-    fn default() -> Self { Self::default_budget() }
+    fn default() -> Self {
+        Self::default_budget()
+    }
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -368,9 +384,7 @@ mod tests {
     #[test]
     fn refuses_over_budget_fanout() {
         let g = Gateway::default_budget();
-        let many: Vec<ChildSpec> = (0..8)
-            .map(|_| ChildSpec::new(0.9, 0.1))
-            .collect();
+        let many: Vec<ChildSpec> = (0..8).map(|_| ChildSpec::new(0.9, 0.1)).collect();
         let d = g.gate(0.5, 1.0, &many);
         assert!(!d.delegate);
         assert_eq!(d.reason, GateReason::TooManyChildren);
@@ -403,7 +417,10 @@ mod tests {
     fn sovereignty_violation_must_involve_non_consent() {
         // In non-sovereign mode even a non-consenting κ-import is
         // allowed to reach the A2 crossover — sovereignty is a choice.
-        let g = Gateway { sovereign_mode: false, ..Gateway::default_budget() };
+        let g = Gateway {
+            sovereign_mode: false,
+            ..Gateway::default_budget()
+        };
         let imposed = [ChildSpec::new(0.2, 3.0)];
         let d = g.gate(0.5, 1.0, &imposed);
         assert_ne!(d.reason, GateReason::SovereigntyViolation);
@@ -431,10 +448,7 @@ mod tests {
             ..DelegationBudget::default()
         };
         let g = Gateway::new(budget);
-        let children = [
-            ChildSpec::new(0.9, 0.1),
-            ChildSpec::new(0.8, 0.1),
-        ];
+        let children = [ChildSpec::new(0.9, 0.1), ChildSpec::new(0.8, 0.1)];
         let d = g.gate(0.2, 0.5, &children);
         assert!(d.delegate, "expected allow, got {d:?}");
         assert_eq!(d.reason, GateReason::Allowed);
@@ -451,10 +465,7 @@ mod tests {
             ..DelegationBudget::default()
         };
         let g = Gateway::new(budget);
-        let children = [
-            ChildSpec::new(0.5, 0.1),
-            ChildSpec::new(0.5, 0.1),
-        ];
+        let children = [ChildSpec::new(0.5, 0.1), ChildSpec::new(0.5, 0.1)];
         let d = g.gate(0.4, 1.0, &children);
         assert!(!d.delegate);
         assert_eq!(d.reason, GateReason::QualityCrossover);
@@ -475,7 +486,10 @@ mod tests {
         let d1 = g.merge_density(&one);
         let d2 = g.merge_density(&two);
         let expected_one = phi(0.5).exp_m1(); // e^φ(0.5) − 1 = 0.5
-        assert!((d1 - expected_one).abs() < 1e-12, "d1={d1}, expected {expected_one}");
+        assert!(
+            (d1 - expected_one).abs() < 1e-12,
+            "d1={d1}, expected {expected_one}"
+        );
         assert!((d2 - 1.25).abs() < 1e-12, "d2={d2}, expected 1.25");
         assert!(d2 > d1);
         // Per-child φ contribution is additive: φ(d2) = 2·φ(d1).

@@ -24,7 +24,10 @@ fn main() {
         ("Edge: 50 MiB exactly     ", 2, 0, 50 * 1024 * 1024),
     ];
 
-    println!("{:<25} {:>6} {:>6} {:>12} {:>8}", "Scenario", "tools", "deps", "mem (bytes)", "score");
+    println!(
+        "{:<25} {:>6} {:>6} {:>12} {:>8}",
+        "Scenario", "tools", "deps", "mem (bytes)", "score"
+    );
     println!("{:-<63}", "");
 
     for (label, tools, deps, mem) in cases {
