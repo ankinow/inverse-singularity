@@ -163,6 +163,17 @@ impl IST {
         // density contributions as linearly equal, which is anti-A2.
         // Aligned with the core equation 2026-08-14 (see CURIOSITY.md,
         // "κ Proliferation" thread — RESOLVED at runtime layer).
+        //
+        // GUARD (A3-as-subsumed decision, CURIOSITY "Structural/Behavioral
+        // Split" 2026-06-22): `quality` is DELIBERATELY deadline-blind —
+        // it does NOT fold ∇. Folding ∇ (the thread's "third option",
+        // Q(d,κ,t,τ) = φ/κ · f(∇)) is `nei_score`'s job, computed below.
+        // `quality` is the *potential* quality (how dense the input is);
+        // `nei_score` is the *actual* quality (what it becomes under the
+        // deadline). Do not "fix" `quality` to vary with t — that collapses
+        // A2 into A3 and erases the potential/actual distinction the two
+        // separate fields exist to keep. The canonical test that pins this:
+        // `quality_is_potential_while_nei_is_actual`.
         let quality = phi(density) / (complexity + f64::EPSILON);
         let nei_score = self.inject(complexity, density);
         let urgency = 1.0 - (self.t as f64 / self.tau as f64);
@@ -253,9 +264,22 @@ impl Default for IST {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Step {
-    /// `Q = φ(density) / (complexity + ε)` — the A2-canonical quality.
+    /// `Q = φ(density) / (complexity + ε)` — the A2-canonical, **potential**
+    /// quality.
+    ///
+    /// Deadline-blind by design (per the core equation Q = φ/κ, no ∇): for a
+    /// fixed `(c, d)` input it is invariant across steps while `t` ticks. It
+    /// answers "how dense is this input?" — not "what does it become under
+    /// deadline pressure?" The *actual* quality — quality folded with ∇ so it
+    /// bends as t→τ — lives in [`Step::nei_score`], and the deadline's effect
+    /// on an arc is read by [`analyze_trajectory`]. Keeping the two separate
+    /// is the Structural/Behavioral Split: [`Step::quality`] is A2-potential,
+    /// [`Step::nei_score`]/urgency are A3-actual. See CURIOSITY.md,
+    /// "Structural/Behavioral Split", 'A2 potential vs A3 actual'.
     pub quality: f64,
-    /// The scalar IST score, after the three transformations.
+    /// The scalar IST score, after the three transformations — the **actual**
+    /// quality: `ψ(c,λ) · φ(d) · ∇(remaining)`. Because it embeds ∇ it is the
+    /// only quality-adjacent measure that responds to the deadline (A3).
     pub nei_score: f64,
     /// `1 − t/τ` — the fraction of the deadline that remains.
     pub urgency: f64,
@@ -559,6 +583,39 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn quality_is_potential_while_nei_is_actual() {
+        // A3-as-subsumed decision (CURIOSITY "Structural/Behavioral Split"
+        // 2026-06-22): `Step.quality` is the *potential* quality — deadline-
+        // blind, A2-canonical Q = φ/κ. It must be INVARIANT across steps for
+        // a fixed (c, d) input, even while `t` ticks and the deadline closes.
+        // The *actual* quality — folded with ∇ so it responds to the deadline
+        // (A3) — is `Step.nei_score`, which must RISE as t→τ. Separating is
+        // the design; collapsing the two (the thread's "third option") is
+        // rejected by the guard in `evolve()`. This test pins that the split
+        // cannot silently regress into "Step.quality varies with the deadline".
+        let mut n = IST::new();
+        let steps = n.collapse(0.31, 0.85, 6); // t = 1..6, pre-wrap
+        assert_eq!(steps.len(), 6);
+
+        // POTENTIAL: quality invariant over the arc (deadline-blind A2).
+        for w in steps.windows(2) {
+            assert!(
+                (w[0].quality - w[1].quality).abs() < 1e-12,
+                "Step.quality must be deadline-blind (potential), got {} vs {}",
+                w[0].quality,
+                w[1].quality
+            );
+        }
+        // ACTUAL: nei_score embeds ∇, so it rises as t→τ (A3-active).
+        assert!(
+            steps.last().unwrap().nei_score > steps.first().unwrap().nei_score,
+            "Step.nei_score (actual) must bend with the deadline: first={} last={}",
+            steps.first().unwrap().nei_score,
+            steps.last().unwrap().nei_score
+        );
     }
 
     #[test]

@@ -6,6 +6,36 @@
 
 ---
 
+## v0.8.0 — 2026-08-24 — A3-as-subsumed decision: `Step.quality` stays potential (deadline-blind), `nei_score` is the actual — pinned by test
+
+Closes the open question CURIOSITY "Structural/Behavioral Split" (2026-06-22) left
+explicitly: *"whether `Step.quality` should fold ∇ (A3 subsumed — the thread's
+'third option') or stay deadline-blind honest."* Decision: **stay deadline-blind**
+(option of the thread labeled "the third option" rejected as a fold, retained as a
+separation). `Step.quality` is the **potential** quality (A2-canonical Q = φ/κ, no
+∇); `nei_score` already folds ∇ and is the **actual** quality (A3-active). Keeping
+the two separate is the design — collapsing them would erase the potential/actual
+distinction the two fields exist to keep.
+
+- **`src/lib.rs`**:
+  - `Step.quality` docstring now names it **potential** quality (deadline-blind by
+    design, per the core equation); `Step.nei_score` docstring names it the
+    **actual** quality (embeds ∇). Hard links to `analyze_trajectory` + the
+    Structural/Behavioral Split thread.
+  - `evolve()` gains a **GUARD comment**: the fold-∇ "third option" is
+    `nei_score`'s job; do not "fix" `quality` to vary with t. Naming the exact
+    rabbit hole (`Q(d,κ,t,τ) = φ/κ · f(∇)`) so a future refactor cannot drift it.
+  - **New canonical test `quality_is_potential_while_nei_is_actual`** pins the
+    split: for a fixed (c, d) input across a 6-step pre-wrap collapse,
+    `Step.quality` is invariant (potential, deadline-blind) while `Step.nei_score`
+    rises as t→τ (actual, A3-active). Regression-proof against "Step.quality
+    varies with the deadline".
+
+No runtime behavior changed — `Step.quality` was already deadline-blind; this bumps
+the version to stabilize the *semantics* (potential vs actual) and pin it in code.
+`cargo test --release` **26/26 green** (25 + 1 new); clippy unchanged (2
+pre-existing warnings in the test suite). Zero deps.
+
 ## v0.7.9 — 2026-08-24 — Action-typing doctrine (mutation vs observe): closing the dense-φ "remaining honest gap"
 
 Closes the gap `a3_dense_phi.py` (v0.7.8) itself named: the dense φ proxy proves density
