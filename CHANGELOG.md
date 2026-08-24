@@ -6,6 +6,34 @@
 
 ---
 
+## v0.7.8 — 2026-08-23 — Dense φ-evidence logger: breaking the sparse-residue resolution wall
+
+Closes the actionable gap left by v0.7.7 (the sparse `!Dc:`/`⊗Er:` layer sat at the
+diary's resolution limit — 6% coverage forced ABSTAIN on the κ-over-φ threshold).
+
+- **`examples/a3_dense_phi.py`** (stdlib, zero-deps) — builds a DENSE φ proxy from the
+  per-session tool histogram (hundreds of `>T:` calls/session) instead of the rare marks:
+  - **φ_exec_ratio = exec_turns / (exec+read)_turns** (exec ∈ {patch, write_file,
+    execute_code, terminal}; read ∈ {read_file, skill_view, search_files, web_search,
+    web_extract, memory, process, browser_exec}) — the work-block execution density;
+  - **φ_exec_core_ratio** (exec minus terminal) — a terminal-halo guard so a
+    terminal-dominated session can't mask a patch/write/execute weakness;
+  - signal coverage jumps from **6% → 100%** of sessions (101/101 vs 6/101);
+  - same bucketing + Spearman + ratio-tolerance verdict engine as v0.7.7, with the
+    loop-disconnected abstain guard moved from "rare-event" to "no sessions".
+- **Real result (101 production sessions, 2026-08-23): NO κ-over-φ collapse on
+  work-block density.** Q̄_low/Q̄_high = 1.00, ρ = −0.156, core proxy 1.28× (under the
+  1.30 tolerance). High-κ sessions keep *executing* — the earlier seductive
+  "ratio 8.08" from the sparse layer was confirmed an artifact. A null, not an abstain:
+  the dense signal exists, covers every session, still refutes the threshold.
+- **`--selftest`** — proves the dense engine fires on a synthetic collapse
+  (ρ −0.84, ratio 5.3) and stays silent on flat/sparse controls.
+- Remaining gap recorded honestly in CURIOSITY.md: moving from "no collapse" to a
+  curve needs per-turn action-typing (mutation vs observe) the `>T:` lines don't carry
+  — a logging-doctrine upgrade, not a measurement one.
+
+---
+
 ## v0.7.7 — 2026-08-23 — κ-proliferation Q harness: the instrument for the κ-over-φ threshold
 
 Operationalizes the FIRST thread in CURIOSITY.md ("κ Proliferation in Agent Ecosystems",
