@@ -6,6 +6,33 @@
 
 ---
 
+## v0.7.9 — 2026-08-24 — Action-typing doctrine (mutation vs observe): closing the dense-φ "remaining honest gap"
+
+Closes the gap `a3_dense_phi.py` (v0.7.8) itself named: the dense φ proxy proves density
+≠ collapse but cannot separate *why* terminal stays high (verification vs genuine
+mutation). This is a **logging-doctrine** upgrade, not a measurement — the read-only
+harness shape is preserved and déjà consumes the new field when present.
+
+- **`theory/action-typing.md`** — standardizes the per-step intent residue `⊗S:mutation`
+  / `⊗S:observe` for diary work-blocks, defines the canonical tool→intent mapping
+  (terminal ambiguous by design), the `mut_rate(session)` curve definition, the 15%
+  coverage floor (parity with the sparse layer), and the 10% mislabel guard.
+- **`examples/a4_action_typing.py`** (stdlib, zero deps, read-only) — parses the diary,
+  separates TYPED `⊗S:` blocks from untyped `>T:` lines, reports action-typing
+  coverage, and — only above the coverage floor — computes the mutation-rate vs κ curve
+  the dense-φ null could not. `terminal` markerless ⇒ *unknown* (never guessed); an
+  inferred tool-kind probe is reported but always labeled, never mixed into a curve.
+- **Honest production read (114 sessions, 5025 blocks, 2026-08-24):** typed coverage 0%
+  (< 15% floor) → **ABSTAIN, not a fabricated curve** — the doctrine is forward-only.
+  Legacy inferred probe: `mut_low=0.30, ρ=+0.131, ratio=0.97` → dense-null-consistent
+  (execution does not retreat to pure-reading); the typed curve is what will detect an
+  intent-only retreat once production adopts `⊗S:`.
+- **`--selftest`**: synthetic intent-collapse fires (`ρ=−0.839`, ratio 4.29), flat and
+  tiny-sample controls stay silent — the curve fragment is proven before the data exists.
+
+`cargo test --release` **25/25 green**; clippy unchanged (pre-existing warnings only).
+Zero deps; reversible (deleting the marker returns the diary to the dense-φ null).
+
 ## v0.7.8 — 2026-08-23 — Dense φ-evidence logger: breaking the sparse-residue resolution wall
 
 Closes the actionable gap left by v0.7.7 (the sparse `!Dc:`/`⊗Er:` layer sat at the
