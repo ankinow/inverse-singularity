@@ -6,6 +6,41 @@
 
 ---
 
+## v0.7.7 — 2026-08-23 — κ-proliferation Q harness: the instrument for the κ-over-φ threshold
+
+Operationalizes the FIRST thread in CURIOSITY.md ("κ Proliferation in Agent Ecosystems",
+raised 2026-06-12): *"can you measure the point where adding a new capability decreases Q?"*
+— the diary-series companion to the A3 work, now measuring the *complexity* side of
+Q = φ/κ instead of the deadline side.
+
+- **`examples/a3_kappa_proliferation.py`** (stdlib, zero-deps) — parses the same Hermes
+  diary as the A3 series and measures, per session:
+  - **κ_turns** = tool-call count (raw context/complexity cost);
+  - **κ_entropy** = Shannon entropy of the tool-name distribution (kit diversity vs. a
+    degenerate one-tool kit);
+  - **φ_residue** = `!Dc:` decision notes + `⊗Er:` honest error marks (the "log
+    everything" residue — the diary's genuine, if sparse, quality proxy);
+  - per-session **Q = φ_residue / κ_turns**.
+  It then buckets at the median κ and tests a falsifiable κ-over-φ claim: does per-effort
+  quality collapse past the κ turnover point (Spearman ρ < −0.05 with Q_low/Q_high ≥ 1.3,
+  or Q_high = 0)?
+- **Honest abstain-guard with proof it works.** A first run returned a seductive
+  "KAPPA-OVER-PHI DETECTED (ratio 8.08)" that the harness's sparsity guard correctly
+  caught as an artifact (only 5% of 121 sessions carry any residue, 83% of those at-or-below
+  median κ — the "collapse" was just sparse logging, not a duty-cycle curve). A bundled
+  `--selftest` manufactures a dense collapse (must detect) and a flat control (must not) —
+  both pass, proving the ABSTAIN on real data is a measured choice, not dead logic.
+- **Empirical finding (v0.7.7):** the production diary's `!Dc:`/`⊗Er:` layer is at the
+  resolution limit for Q-vs-κ (6/121 sessions). Dense, defensible signal available: residue
+  concentrates in SHORT sessions — long sessions run with **zero** recorded decision/error
+  marks (the SS7 transparency/under-report gap measured at scale). Actionable: a denser φ
+  signal (faithful work-block evidence logging, already SOUL-mandated) is the missing piece
+  before the κ-over-φ curve can be claimed from production data.
+- **Read-only by design** (the thread's 2026-06-13 Goodhart guard): marks thresholds, never
+  triggers actions; the abstain-trap demonstrates the read-only discipline working.
+
+---
+
 ## v0.7.6 — 2026-08-23 — A3 self-adaptive τ proven in-runtime (control group for the budget knob)
 
 Turns the v0.7.5 budget recommendation into a committed Rust control group. Where
