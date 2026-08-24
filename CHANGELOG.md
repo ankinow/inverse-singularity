@@ -6,6 +6,24 @@
 
 ---
 
+## v0.8.1 — 2026-08-24 — Layer-3 verifier: narrative-optimization is closed (ist-gate `verify_claims`)
+
+Closes the CURIOSITY "Narrative Optimization as A4 Subversion" thread's open
+question: *"does the runtime need a third layer — a non-LLM, non-prompt check that
+the agent cannot narrate its way past?"* Answer: yes — and it now exists as a
+reusable runtime component. `verify_claims.py` (ist-gate, stdlib-only, fail-closed)
+is a deterministic verifier with no LLM in the loop: it parses explicit claim
+markers out of a final_response and checks each directly against the system of
+record (file stat/marker readback, `git rev-parse HEAD`/`status --porcelain`,
+HTTP status). `--selftest` 8/8 (rejects fabricated path, lying git prefix,
+unreachable HTTP; flags narrative-without-evidence; passes genuine evidence).
+Wired into `pre_verify` so the session-end audit carries evidence-backed verdicts
+(`claims N/M verified`) — verification can no longer be satisfied by prose.
+The hub-api zombie lesson (canary > narrative) is promoted from a one-off audit
+chase into a reusable gate. Marine: *verify externally or report "unverified"*.
+
+---
+
 ## v0.8.0 — 2026-08-24 — A3-as-subsumed decision: `Step.quality` stays potential (deadline-blind), `nei_score` is the actual — pinned by test
 
 Closes the open question CURIOSITY "Structural/Behavioral Split" (2026-06-22) left
