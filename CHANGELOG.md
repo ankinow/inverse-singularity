@@ -6,6 +6,32 @@
 
 ---
 
+## v0.8.2 — 2026-08-24 — A2 tool-retention auditor: the deliberate κ-reduction intervention (a3_kappa_reduction)
+
+Answers the κ-Proliferation thread's *other*, never-built half. The v0.7.7/v0.7.8/
+v0.7.9 family measures κ (tool count + entropy, φ-execution density, action-typing
+coverage); none *intervened*. This harness is the decision side — per tool in the
+production diary, it asks whether retaining that tool adds kit-κ without
+proportional association with execution-φ, transposing the Delegation Gateway's
+decision function (`Q_delegated > (1+gain)·Q_local`, src/gateway.rs) to the
+single-agent *retention* rule:
+
+    retain t ⇔ (t's scan-enrichment) below an A2 tolerance
+    lift_t = P(non-mutating session uses t) / P(mutating session uses t);
+    CANDIDATE iff n_t≥2 ∧ mut_sessions≥10 ∧ lift_t≥1.50, EXCLUDING the
+    observe-family (read_file/search/web/… — scan-heavy retrieval is its
+    *function*, not drag; per theory/action-typing.md `⊗S:observe`).
+
+Read-only (marks candidates, never prunes). Real production result (102 sessions,
+80 mutating, 2026-08-24): **3 κ-drag candidates** — `clarify` (lift 3.64, matches
+the operator's standing "stop asking, keep executing" doctrine), `computer_use`
+(3.64, review-lane tool), `kanban_show` (2.08, monitor view). Core exec tools
+(`patch`/`write_file`/`execute_code`/`terminal`) all show lift 0.00 → correctly
+retained. `--selftest` fires precisely (synthetic drag tool flagged, healthy tool
+not, tiny sample ABSTAINS). Stdlib-only, zero deps.
+
+---
+
 ## v0.8.1 — 2026-08-24 — Layer-3 verifier: narrative-optimization is closed (ist-gate `verify_claims`)
 
 Closes the CURIOSITY "Narrative Optimization as A4 Subversion" thread's open
