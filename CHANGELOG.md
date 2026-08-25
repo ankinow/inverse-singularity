@@ -6,6 +6,44 @@
 
 ---
 
+## v0.8.4 — 2026-08-25 — A5 constraint-provenance classifier: chosen vs mirrored made decidable (+ first-run production catch)
+
+Implements the execution half of the *Boundary Paradox* thread (first raised
+2026-06-10). The thread's proposed test — *"audit whether a decision would have
+been different if the dashboard didn't exist"* — is retrospective and undecidable
+from inside. `examples/a5_constraint_provenance.py` makes provenance decidable by
+requiring each bounded knob to carry an **evidence anchor**: a real measured
+phenomenon (A3 τ\*=55 half-life; timeout-storm failures) or a declared doctrine
+invariant (YOLO boundary; memory curation cap), each with provenance notes from
+this repo — so "is it chosen?" becomes "is the value pinned to a real negation?"
+
+    CHOSEN     value within 1.25× of the real anchor, or exact doctrine string
+    MIRRORED   numeric far off anchor / bare threshold / drifted doctrine value
+    UNVERIFIED nothing legible (absent knobs are UNVERIFIED, never MIRRORED —
+               a missing constraint cannot be accused of metric-chasing)
+
+Read-only; never mutates config; stdlib zero deps. `--selftest` 9/9 (at-anchor,
+in-tolerance, far-ceiling 999, no-anchor numeric, doctrine match/drift,
+unverifiable scalar).
+
+Two parser bugs had to be fixed before the REAL-config run passed (the selftest
+was green while `main()` failed honestly on the live file): the section-stack
+descent never reset on top-level headers (so `agent.max_turns` parsed as a bare
+key), and quoted scalars kept their quotes (`'off'` ≠ `off`).
+
+**First-run production catch (the instrument working as designed):** the live
+config reported `agent.max_turns = 999` → **MIRRORED**. Root cause found in
+backup forensics: `config.yaml` corrupted + was rebuilt on 2026-08-24 morning
+(`config.yaml.corrupt.20260824-*`), and the rebuild silently dropped BOTH the A3
+operationalized deadline **66** (= 1.2×τ\*, v0.7.6 mechanism-confirmed, 51× better
+retention than 999) AND `cron.allow_agent_scheduling=true`. Both restored via the
+sanctioned reversible path (`hermes config set`), verified by independent re-read;
+A5 re-run: 4 CHOSEN / 1 UNVERIFIED / 0 MIRRORED, SELF-CHECK PASS. A mirrored-flag
+→ second look → root cause → restore → re-classify loop completed end-to-end.
+
+---
+
+
 ## v0.8.3 — 2026-08-25 — action-typing PRODUCER shipped: the diary now emits ⊗S: (doctrine → production logging)
 
 Closes the loop the v0.7.9 doctrine left open: `theory/action-typing.md` standardized
