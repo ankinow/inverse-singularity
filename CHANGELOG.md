@@ -6,6 +6,41 @@
 
 ---
 
+## v0.8.7 — 2026-08-25 — A3 quality-delta at the cap: does τ=66 cost deliverable quality? (CARRYOVER, verdict ABSTAIN)
+
+Closes the last open caveat of v0.8.6 (BINDS_AND_BITES proved the deadline
+terminates sessions; nobody had measured whether capped ticks deliver *worse
+outcomes*). `examples/a3_quality_delta.py` (stdlib zero-deps, read-only,
+selftest 17/17 PASS) joins every dev-continuo tick session in state.db born
+after the first arm (source=cron ∧ id LIKE `cron_4d301de794bc_%`) with its own
+final-message outcome classifier (DONE / CAP_DELIVERED / CAP_CUT(_SOFT) /
+GATE_GREEN / IDLE / SILENT / FAIL / OTHER) and an artifact prover that extracts
+candidate SHAs from the tick transcript and verifies each against real git
+object stores (`git cat-file -e <sha>^{commit}` across the 7 ecosystem repos;
+all-digit hex-shaped tokens rejected as calendar stamps).
+
+**Production data (19 ticks post-arm):** capped group (api==66) n=3 — all 3
+delivered substantive work but committed NOTHING in-session (0 SHAs verified
+in their own transcripts): the SAST triage report was written and then
+committed by the NEXT tick's session; the deadline-production harness itself
+(c8f3237) was built at 15:00 cap-hit and committed at 16:00. Subcap n=16
+(11 decided): done_rate 0.182, artifact_rate 1.0. **Structural finding:
+CARRYOVER** — under τ=66, large frontier items cross the cap with the work
+done but uncommitted; the commit lands on a fresh budget next tick. This is
+the mechanism behind "cap-hit ticks completed their backlog items" (v0.8.6):
+the item completes ACROSS two sessions, not inside the capped one.
+
+**Verdict: ABSTAIN(sample<5)** — honest refusal to rank groups at n_capped=3.
+The instrument stays live; it re-runs per tick and converts to NO_QUALITY_CLIFF
+or QUALITY_COST automatically once either group reaches MIN_GROUP_N=5.
+
+Classifier lessons baked into tests (each was a real false positive caught by
+tail-auditing before believing the JSON): (1) security-triage vocabulary is
+deliverable content, not failure evidence → SAFE_CONTEXT guard; (2) cap-hit
+ticks may write a final report before dying → CAP_DELIVERED requires report
+signature + backticked SHA in-tail, else CAP_CUT_SOFT; (3) float boundary
+`0.8*0.75 > 0.6` → ε-guard in the verdict rule.
+
 ## v0.8.6 — 2026-08-25 — A3 production-deadline harness: the natural experiment (BINDS_AND_BITES)
 
 Closes the last empirical question of the *Structural/Behavioral Split* thread:
