@@ -6,6 +6,46 @@
 
 ---
 
+## v0.8.3 — 2026-08-25 — action-typing PRODUCER shipped: the diary now emits ⊗S: (doctrine → production logging)
+
+Closes the loop the v0.7.9 doctrine left open: `theory/action-typing.md` standardized
+the step-intent marker, but the only producer was *future agents remembering to type
+it by hand* — production stayed at typed=0% (109 sessions, ABSTAIN). The producer is
+now structural: **`session-scribe` v1.1.0** (Hermes diary plugin,
+`/mnt/hermes/plugins/session-scribe/action_typing.py`) appends one dedicated
+`⊗S:mutation` / `⊗S:observe` line after every `>T:` work-block line.
+
+Typing rules (canonical tool→intent map, doctrine §2):
+- unambiguous tools typed directly (`patch`/`write_file`/`delegate_task` → mutation;
+  `read_file`/`search_files`/`skill_view`/web/memory/vision/todo → observe);
+- ambiguous tools (`terminal`, `execute_code`, `browser_exec`) inspected via
+  conservative command regexes — state-changing verbs (git push/commit, package
+  installs, wrangler deploy, hermes config set/cron/kanban mutations, curl -d/-X
+  POST|PUT|PATCH|DELETE, sed -i, rm/mv/cp/chmod, kill) and write-redirects to real
+  paths win; build/test/lint checks (cargo build/test/check/run/clippy, npm run
+  build/test/lint, pytest/vitest/node --test), read-only prefixes and process-poll
+  actions classify observe;
+- write-redirect guard excludes `->` arrows and `>/dev/null` discards (mislabel
+  protection for the harness's 10% tolerance);
+- everything else stays UNKNOWN and emits NO marker line — never guessed
+  (unknown > typed, doctrine §4).
+
+Proof chain (all executed 2026-08-25): emitter selftest 24/24 PASS; E2E sandbox
+diary driven through the REAL `scribe_core.tool_call()` parsed by the CANONICAL
+`a4_action_typing.py` parser → typed mut=3 obs=6, coverage 47.4% >> 15% floor,
+mut_rate computable on recorded intent; plugin hook wiring proven against the live
+diary (first production `⊗S:mutation` written); a3/a4 series re-run clean on the
+real diary (no regression: a4 ABSTAIN typed=0% until forward ticks accumulate,
+a3-kappa ABSTAIN, dense-φ NO-KAPPA-OVER-PHI, compliance SHAPE=ROT unchanged).
+
+Forward-only by design: typed coverage climbs from 0% as new sessions tick; once it
+clears the 15% floor with ≥30 typed sessions, a4 turns its ABSTAIN into the
+defensible mutation-rate curve — closing the κ-Proliferation thread end-to-end on
+*recorded*, not classified, intent.
+
+---
+
+
 ## v0.8.2 — 2026-08-24 — A2 tool-retention auditor: the deliberate κ-reduction intervention (a3_kappa_reduction)
 
 Answers the κ-Proliferation thread's *other*, never-built half. The v0.7.7/v0.7.8/
