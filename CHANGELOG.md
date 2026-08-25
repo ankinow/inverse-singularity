@@ -6,6 +6,46 @@
 
 ---
 
+## v0.8.6 — 2026-08-25 — A3 production-deadline harness: the natural experiment (BINDS_AND_BITES)
+
+Closes the last empirical question of the *Structural/Behavioral Split* thread:
+does the compliance shape of a production agent match the deadline-armed arc
+when a structural τ actually exists? Production answered by accident — within
+~48h the SAME system ran under three knob regimes (66 armed 23/ago → dropped to
+999 in the 24/ago config corruption+silent rebuild → re-armed 25/ago), with
+window boundaries pinned by on-disk config snapshots (`config.yaml.bak.*`,
+`config.yaml.corrupt.*`), never narrative.
+
+    examples/a3_deadline_production.py (stdlib zero-deps, read-only)
+      PRIMARY source : state.db `sessions.api_call_count`
+      UNIT discovery : the knob counts MODEL turns, not tool calls — every
+                       prior diary `>T:` survival curve measured the wrong
+                       clock (parallel batching packs several >T: into one
+                       model turn); harness v1 caught its own impossible
+                       "185 >T: under an armed knob" and switched sources.
+      SCOPE discovery: the knob binds cron/subagent/kanban sessions and
+                       leaves operator interactive sessions unbound (an
+                       interactive run reached 479 model turns while armed).
+      Verdict gates  : BINDS_AND_BITES / TAIL_UNDER_ARM / INSUFFICIENT,
+                       deterministic; seeded permutation test for the
+                       paired-job comparison; --selftest manufactures
+                       capped/tail/tiny/perm worlds and must classify each.
+
+Production result (139 sessions since first arm):
+
+    A'(tau=66) bound n=34: max=66, P(>66)=0.00, exact66=3   <- cap bites
+    B (tau=999) bound n=70: max=31 (workload-limited window)
+    Paired dev-continuo job: mean 30.1 turns under arm vs 21.2 under drop;
+    three runs terminated AT api==66 exactly — the deadline measurably
+    ends sessions, and both capped ticks completed their backlog items.
+
+VERDICT: **BINDS_AND_BITES** — zero bound tails past 66 under either armed
+window AND exact-cap terminations present. Honest asymmetry kept open: the
+dropped-knob window cannot produce control-side cap evidence (its longest
+job simply ran out of workload first).
+
+---
+
 ## v0.8.4 — 2026-08-25 — A5 constraint-provenance classifier: chosen vs mirrored made decidable (+ first-run production catch)
 
 Implements the execution half of the *Boundary Paradox* thread (first raised

@@ -130,6 +130,13 @@ Still open (genuinely outside one runtime): whether the *compliance shape* of a 
 
 ---
 
+**MEASURED IN PRODUCTION (`examples/a3_deadline_production.py`, v0.8.6, 2026-08-25):** the open empirical question above — *does the compliance shape match the deadline-armed arc when a structural τ exists* — is answered with a natural experiment production ran on itself. Within ~48h the SAME system ran under three knob regimes (66 armed 23/ago 22:07→23:59 · 999 after the 24/ago config corruption+silent rebuild, 08:00→04:00 · 66 re-armed 25/ago 06:00→), boundaries pinned by on-disk config snapshots, not narrative. Two structural discoveries had to precede any verdict:
+
+1. **UNIT:** the knob counts MODEL turns (`state.db.sessions.api_call_count`), not tool calls. The diary `>T:` lines count tool calls — parallel batching puts several per model turn — so every prior diary-based survival curve measured the wrong clock (v1 of this harness honestly caught its own impossible "185 >T: under an armed knob" and switched primary source to state.db).
+2. **SCOPE:** the knob binds cron/subagent-class sessions; operator interactive sessions run unbound (479/640/1059 model-turn interactive sessions exist while armed). Fleet-wide 20-day evidence: cron p99 = exactly 66.
+
+**Result (BINDS_AND_BITES):** under both armed windows, zero bound sessions exceed 66 (n=34) and TWO dev-continuo runs terminate at api==66 exactly (10:41 & 11:30, 25/ago) — the deadline measurably ends production sessions. The dropped-knob window's bound max is only 31: workload-limited, not knob-limited (honest asymmetry — no control-side cap evidence was possible in that window). Paired-job view: same job averaged 21.2 model turns under 999 vs 30.1 under 66, hitting 63–66 regularly — **the armed budget makes the autonomous loop work LONGER per tick, not shorter**, and both cap-hit ticks completed their backlog items (SAST triage + rescan/mute are in the log with artifacts). Caveats kept open: exact-cap ≠ optimal τ (no quality-delta measure yet); cap-hits were completed-work coincidences twice, not proven robustness.
+
 ### The Boundary Paradox
 **First raised:** 2026-06-10, Nova first activation
 **Last dispatched:** 2026-06-11 (Morning Axiom Report — AI regulatory pre-compliance as test case)
