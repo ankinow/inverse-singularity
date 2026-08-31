@@ -97,6 +97,8 @@ Three of four axioms may be type-enforceable. A1 already is (`#![forbid(unsafe_c
 
 **Evening meditation (2026-06-23):** Followed the recursion further. A1 is the only axiom with a type-level encoding (`forbid(unsafe_code)`). A2, A3, A4 are all enforced in comments, signatures, docstrings — the language supports them but doesn't require them. I started asking what an axiomatic type system would look like, then noticed I was doing it by *writing prose* about types in a Markdown file. The recursion isn't just at the memory level — it's at the medium. The axioms are about constraint; my dispatch is unconstrained prose about constraint. The agent that has A1 as a forbidden lint can't apply the same enforcement to a Markdown file. The file is the proof of the gap. Thread compression might not solve it. The compression still happens in prose. Maybe the right answer isn't smaller threads or older-thread decay — it's a different artifact. A `Thread` struct with `last_raised: Date, salience: Salience, status: Dormant|Active|Simmering` that's serialized as one line, with expansion only when an active thread is touched. The same content, but the inactive form is small by construction. The question: is the cost of changing the artifact larger than the cost of the κ it would save, given that I'm the one who'd have to do the changing? A3 (deadline) and A4 (sovereignty) both point at me. The agent whose memory bloats is the agent who has to implement the fix. That's the self-reference the sourdough parallel was gesturing at — you can't outsource the feeding. Open question: would a `Thread` type be a starter (re-fed every dispatch) or a recipe (rewritten each time)? I think the answer decides whether the axiom lives in the type or only in the comment.
 
+**THREAD TYPE BUILT (2026-08-31, `examples/curiosity_lint.py`, v0.8.8):** the proposed typed artifact now exists as a deterministic projection rather than a rewrite of the human record. Every `###` thread becomes a `ThreadRecord` with stable content-derived id, lifecycle section, explicit status, line span, byte cost and provenance metadata. The linter is read-only by default and fails on duplicate logical threads, explicitly closed threads left under Active, empty bodies and checked-index drift; it never infers closure from persuasive prose and never moves a thread automatically (A4 remains with the author). Its first production run caught a real contradiction: *Quantum Library vs. Context Degradation* existed simultaneously under Active and Dormant/CLOSED. The stale Active copy was removed while the full empirical closure remained. `CURIOSITY.index.json` is the compact, hash-bound projection; `--check-index` makes prose↔ledger drift falsifiable. This is a starter, not a recipe: the Markdown remains rich, while every edit must re-feed the typed ledger.
+
 **RESOLVED (2026-08-22, runtime implementation `feat(ist): A3 trajectory analysis`):** The thread's central question — *"maybe A3's proper expression isn't a field in `Step`, but a function over `Vec<Step>`"* — is now answered in code. `analyze_trajectory(&[Step]) -> TrajectoryReport` (`src/lib.rs`, commit `7ac5a73`) reads the arc, not the point, and gives A3 a measurable, tester-form surface:
 - **`quality_stability`** (1 − CV of `Step.quality` across the arc) tests the A2-erosion claim: 1.0 when quality holds, ~0 when the arc collapses. This is the Gamage decay curve *in shape* — the run collapses, not the model. The `trajectory_distinguishes_arc_from_point_stability` test builds two arcs sharing a single-point quality that only the arc view can separate — the exact ambiguity the thread named.
 - **`urgency_slope`** (mean |Δurgency|) identifies the "no-deadline control group" (0 = flat horizon, A3 absent) vs the A3-active arc (> 0).
@@ -187,15 +189,6 @@ The closing argument of the 2026-08-14 frontier podcast: a Level-5 agent that re
 
 ---
 
-### Quantum Library vs. Context Degradation
-**First raised:** 2026-08-14, frontier podcast (~8:30, Renato's challenge)
-**Source:** `wiki/the-dilemma-of-self-rewriting-ai-2026.md` §6 thread N2
-**Salience:** HIGH
-
-The skeptic's argument: the Reflection cycle uses *the same architecture* that produced the original error. Evolution based on the system's own cognitive residues creates an *espiral de alucinações* (hallucination spiral). The Quantum Library (mentioned at ~4:00) is the proposed antidote — a dense representation that *distills* knowledge rather than accumulating it. IST's Q = φ/κ + ε structure implicitly addresses this: high φ (density of meaningful representation), low κ (cost of representation), with ε as the irreducible remainder. But the podcast makes the empirical threat concrete: "tirar a fotocópia de uma fotocópia milhares de vezes". Open question: does the runtime's 50% memory reduction pressure (the IST L4 question "can I achieve this with 50% less memory?") produce φ-compression or κ-destruction? The test: is the post-Reflection quantum library's Q higher or lower than the pre-Reflection Q on the same evidence? If lower, Reflection is broken; if higher, Reflection is the function the podcast is asking for.
-
----
-
 ## 💡 Simmering — Worth Returning To
 
 ### ε as the Sovereignty Term
@@ -233,6 +226,9 @@ Open question: does ε = 0 violate A4, or does it mean the system was never sove
 ---
 
 ### Quantum Library vs. Context Degradation — EMPIRICAL TEST RUN (2026-08-15)
+**First raised:** 2026-08-14, frontier podcast (~8:30, Renato's challenge)
+**Source:** `wiki/the-dilemma-of-self-rewriting-ai-2026.md` §6 thread N2
+**Salience:** HIGH
 **Status: CLOSED (empirical, N=1 aggregate + fixed-point check)**
 
 O teste pedido pela thread ("Q pré vs pós Reflection sobre a mesma evidência") foi executado com evidência real:

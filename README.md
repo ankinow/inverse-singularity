@@ -187,13 +187,15 @@ inverse-singularity/
 │
 ├── src/                          ── Rust primary runtime
 │   └── lib.rs                    ── IST engine (~350 lines, 0 external crates)
-├── examples/                     ── Rust runnable demos
+├── examples/                     ── Rust demos + zero-dependency evidence harnesses
 │   ├── collapse.rs               ── 7-day collapse demo (fingerprint check)
 │   ├── audit.rs                  ── constraint audit matrix (8 combos)
-│   └── tuned.rs                  ── λ×τ parameter grid (7×6) + rejections
+│   ├── tuned.rs                  ── λ×τ parameter grid (7×6) + rejections
+│   └── curiosity_lint.py         ── typed CURIOSITY ledger + contradiction gate
 ├── Cargo.toml                    ── Rust workspace (zero deps, serde optional)
 │
-├── CURIOSITY.md                  ── Thread persistence (A3 operationalized)
+├── CURIOSITY.md                  ── Human-authored thread persistence
+├── CURIOSITY.index.json          ── Deterministic hash-bound thread projection
 ├── papers/                       ── External validation, references
 ├── LICENSE                       ── MIT
 └── README.md                     ── This file
@@ -265,8 +267,12 @@ print(n.collapse(0.31, 0.85, 7))
 "
 
 # Run tests
-cargo test                    # 17/17 pass (9 core + 8 gateway)
-cargo test --features serde   # 17/17 pass with serde
+cargo test                    # core + gateway + trajectory tests
+cargo test --features serde   # same suite with serde
+
+# Verify the typed curiosity ledger (read-only; fails on contradictions/drift)
+python3 examples/curiosity_lint.py CURIOSITY.md \
+  --check-index CURIOSITY.index.json
 
 # Read the thesis
 cat theory/ist_manifesto.md
@@ -287,7 +293,7 @@ That is the entire install. **There is no other step.**
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  Engine         ████████████████████  v5 · Rust + Python · 0 deps        │
-│  Examples       ████████████████████  3 demos (collapse, audit, tuned)   │
+│  Examples       ████████████████████  Rust demos + evidence harnesses   │
 │  Serde          ████████████████████  optional feature, zero-cost        │
 │  Axioms         ████████████████████  4/4 formalized (LaTeX)            │
 │  Manifesto      ████████████████████  pt-BR + EN, in repo               │
@@ -299,7 +305,7 @@ That is the entire install. **There is no other step.**
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Status**: V5 complete · Sovereign layer integrated · Zero dependencies · 17/17 tests (9 core + 8 gateway) · Serde optional · Deploy-ready.
+**Status**: V5 complete · Sovereign layer integrated · Zero dependencies · 26/26 tests · Serde optional · Deploy-ready.
 
 **Frontier anchor (2026-08-14):** `wiki/the-dilemma-of-self-rewriting-ai-2026.md` — primary anchor document. Maps the 2026 frontier podcast (Hermes, SOUL.md, IST, RSIP, MCP, AutoDream, EvalDim9D, YOLO, DeepMind 17× error amplification, etc.) to the runtime + LERMF-grounded critiques.
 

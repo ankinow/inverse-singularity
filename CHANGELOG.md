@@ -6,6 +6,36 @@
 
 ---
 
+## v0.8.8 — 2026-08-31 — Typed CURIOSITY ledger: prose contradictions become falsifiable
+
+Implements the `Thread` artifact proposed by CURIOSITY's own memory-growth
+recursion without replacing the rich Markdown source. New stdlib-only,
+read-mostly `examples/curiosity_lint.py` projects every `###` thread into a
+stable typed record: content-derived id, normalized Unicode key, lifecycle
+section, explicit status, line span, byte cost and provenance metadata.
+
+Hard findings are deliberately narrow and non-narrative: duplicate logical
+threads across lifecycle sections, explicitly closed threads still under
+Active, empty bodies, headings outside lifecycle sections, and drift between
+`CURIOSITY.md` and the checked-in `CURIOSITY.index.json`. Missing Active
+metadata and optional byte budgets are warnings. The tool never infers closure
+from persuasive prose and never moves a thread automatically; A4 remains with
+the author. Default execution is read-only. Index writes require the explicit
+`--write-index` flag; `--check-index` binds the projection to the source SHA-256.
+
+First production run found a real contradiction: *Quantum Library vs. Context
+Degradation* existed simultaneously as Active/open and Dormant/CLOSED. The
+stale Active duplicate was removed; the complete empirical closure remains.
+Result: 10→9 logical records, 7→6 Active records, zero errors/warnings, and a
+deterministic hash-bound ledger. Independent Codex review then exposed six
+adversarial gaps; all were closed before commit: exact lifecycle-token resets,
+CommonMark-length fence handling with fenced metadata ignored, NFC identity,
+raw-byte/CRLF-sensitive hashes and spans, strict-mode pre-write gating, and
+atomic sibling-only writes rejecting source/symlink/hardlink collisions.
+Selftest: 32/32 across clean/duplicate/status/lifecycle/fence/Unicode/CRLF,
+warning-budget, strict, index drift, permissions and write-safety cases. Zero
+dependencies.
+
 ## v0.8.7 — 2026-08-25 — A3 quality-delta at the cap: does τ=66 cost deliverable quality? (CARRYOVER, verdict ABSTAIN)
 
 Closes the last open caveat of v0.8.6 (BINDS_AND_BITES proved the deadline
