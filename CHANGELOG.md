@@ -6,6 +6,40 @@
 
 ---
 
+## v0.8.9 — 2026-09-11 — κ-series dQ/dt reader + selftest + append-only write-safety (`--trend`)
+
+Closes the κ-Proliferation thread's "sole open part" (watch dQ/dt for the
+collapse pattern) by giving the timeseries instrument the two things it was
+missing versus every sibling in `examples/`, plus a silent write-safety fix.
+
+- **`--trend` reader** (`schema kappa-trend/v1`): computes the dQ/dt gradient
+  over the stored series — per-sample ΔQ via `compute_trend` (first_vs_last ΔQ,
+  slope sign up/down/flat, monotone-drop count, and a **`collapse`** verdict
+  that fires only when the last sample is strictly below both the first sample
+  and the running maximum — a genuine past-peak dQ/dt<0 turn). Read-only: it
+  reports, never gates (Goodhart safeguard preserved).
+- **`--selftest` (8/8)**: pure `compute_sample` math (φ=ln(1+d); Q_raw=φ/κ;
+  Q strictly decreases as κ rises — the A2 collapse direction in miniature);
+  append-does-not-replace roundtrip on a temp DB; trend verdict on synthetic
+  rising (no collapse) / collapsing (collapse) / single-sample (abstain, `None`)
+  series; window clamping.
+- **Write-safety hardening**: the pre-9/11 table used `ts TEXT PRIMARY KEY`,
+  so `INSERT OR REPLACE` collated a re-sample onto the prior row instead of
+  appending (a silent history-corruption bug). `init_db` now migrates any
+  `seq`-less table to append-only `seq INTEGER PRIMARY KEY AUTOINCREMENT`,
+  preserving every historical sample ordered by its timestamp (proved against
+  a copy of the live DB: 7 rows → 7 rows, seq monotonic 1..7). Read paths
+  (`--show`/`--trend`) ensure the schema idempotently before reading.
+
+First live `--trend` reports `collapse:true` — correctly — because the series
+carried a definitional rebase (κ gained toolsets+MCP terms), not a real
+collapse; the reader surfaces it honestly and acts on nothing. Each future
+weekly sample now appends (never overwrites); the thread's dQ/dt observation
+is a one-liner (`--trend`). Python-only change (no Rust touched; `cargo test`
+unaffected).
+
+---
+
 ## v0.8.8 — 2026-08-31 — Typed CURIOSITY ledger: prose contradictions become falsifiable
 
 Implements the `Thread` artifact proposed by CURIOSITY's own memory-growth
