@@ -6,6 +6,44 @@
 
 ---
 
+## v0.8.13 — 2026-09-11 — self-bloat measured: A2/A3 applied to CURIOSITY.md's own κ
+
+The κ Proliferation thread opened with an observation that the *thread file
+itself* is the disease: "the agent that writes anti-bloat doctrine accrues
+threads faster than the foundation" (2026-06-23, "cure and disease share a
+file"). The proposed fix — *"τ on threads — each entry timestamps and decays,
+dormant threads compress to one-line pointers … A3 applied to my own thread
+file"* — stayed prose for ~2.5 months. This release makes the claim falsifiable.
+
+`examples/curiosity_kappa.py` (stdlib-only, zero deps, read-only) parses
+CURIOSITY.md into per-thread records with a **three-way φ state** — `open`
+(no answer marker) / `resolved` (carries RESOLVED/CLOSED/DECIDED/INSTRUMENTED
+inline but never explicitly closed) / `closed` (`**Status: CLOSED**`) — and
+flags **κ-over-φ self-bloat**: any *answered* thread whose dispatch-history
+byte κ exceeds the median history of still-*open* threads (the "starter re-fed
+after the bread is done" shape).
+
+**First production datapoint (2026-09-11):** CURIOSITY.md = 77,826 bytes / 9
+threads (4 open, 3 resolved, 2 closed) → **verdict SELF-BLOAT**. The two
+flagged threads are κ Proliferation (30,446B, resolved) and The
+Structural/Behavioral Split (23,721B, resolved) — both answers already in the
+record, both keeping the largest dispatch histories in the Active section.
+
+The instrument only reports: it never decays a thread, never edits
+CURIOSITY.md, and exits 1 on SELF-BLOAT in human runs (so a cron consumer
+*could* gate on it) without ever prescribing. `--selftest` 7/7 (synthetic
+answered-bloat fires; flat answered-under-median stays silent). The actual
+τ-decay — compressing resolved dispatch histories to one-line pointers —
+remains a human decision the instrument surfaces but, per A4, does not do for
+the author.
+
+Verification: `py_compile` on all `examples/*.py` OK; `curiosity_lint
+--selftest` 32/32; `curiosity_lint CURIOSITY.md --check-index
+CURIOSITY.index.json` → INDEX_MATCH (ledger re-fed after the prose edit).
+Commit local (push blocked — see BACKLOG "Pendências L5", GitHub auth).
+
+---
+
 ## v0.8.12 — 2026-09-11 — ε_code compressed: terminal-shape classifier extension (A6 forward-only)
 
 The A6 ε-probe (v0.8.11) closed its measurement with an explicit forward-only action:
