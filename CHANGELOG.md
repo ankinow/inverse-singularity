@@ -6,6 +6,43 @@
 
 ---
 
+## v0.8.14 — 2026-09-11 — self-bloat trended: append-only time-series for CURIOSITY.md's κ
+
+The v0.8.13 instrument (`curiosity_kappa.py`) made the self-bloat recursion
+falsifiable as a *point-in-time* verdict, but its own docstring named the
+residue: "exits 1 on SELF-BLOAT in human runs so a cron consumer *could* gate
+on it" — yet no consumer existed, and a one-shot read cannot make a self-bloat
+that *compounds* visible (the "starter re-fed after the bread is done" shape
+accumulating week over week). This release closes that gap with the same
+discipline the κ-Proliferation thread already used for dQ/dt
+(`kappa_proliferation_timeseries.py --trend`, v0.8.9): a read-only,
+append-only time-series.
+
+New `examples/curiosity_kappa_trend.py` (stdlib, zero deps, read-only):
+
+  * does **not** re-implement the parser — `importlib`-loads the sibling's
+    `parse_curiosity`/`compute` (single source of truth, no drift);
+  * each run appends one row {ts, threads, total_bytes, open/resolved/closed,
+    largest_thread, bloat_count, bloated_bytes, bloated[], verdict} to
+    `data/curiosity_kappa_trend.sqlite` (append-only `seq INTEGER PRIMARY KEY
+    AUTOINCREMENT`);
+  * `--trend` (`schema curiosity-kappa-trend/v1`) reads the self-bloat
+    gradient and reports **`worsening`** only on a genuine monotone rise of
+    bloated_bytes past the healthiest point (never flat/improving; abstains on
+    <2 samples);
+  * `--selftest` 6/6 (compute-wrap, append-does-not-replace with monotonic
+    seq, worsening/falling/abstain verdicts).
+
+Backed by a weekly no-agent cron (`5fedcb10437c`, Mon 09:17) via
+`~/.hermes/scripts/kappa-curiosity-trend-weekly-sampler.sh`. First live
+datapoint: 9 threads / 78,365 bytes, 2 bloated *resolved* threads = 56,130
+bytes = 71.6% of the file — the instrument now *trends* whether that fraction
+grows. The τ-decay itself (compress resolved dispatch histories to one-line
+pointers) remains a human decision the instrument perpetually surfaces but,
+per A4, never executes.
+
+---
+
 ## v0.8.13 — 2026-09-11 — self-bloat measured: A2/A3 applied to CURIOSITY.md's own κ
 
 The κ Proliferation thread opened with an observation that the *thread file
