@@ -6,6 +6,59 @@
 
 ---
 
+## v0.8.12 — 2026-09-11 — ε_code compressed: terminal-shape classifier extension (A6 forward-only)
+
+The A6 ε-probe (v0.8.11) closed its measurement with an explicit forward-only action:
+*"extend the terminal-shape classifier in `action_typing.py` … to compress ε_code →
+ε_system without touching the sovereignty residue."* The probe's own first run named
+the gap precisely — ε_code = 1.3218, dominated by 6,443 terminal-UNKNOWN calls
+(63× the 117 mislabels), the compressible enforcement gap.
+
+This release executes that action. The producer classifier (the scribe's
+`session-scribe/action_typing.py`) measured its own live coverage against the ground
+truth in `state.db` (the tool-call JSON the diary's bare `>T:terminal` lines do not
+persist): **28.0% of 4,507 terminal/execute_code commands went UNKNOWN** under the
+v0.7.9-era classifier. The dominant UNKNOWN clusters were pure-read status commands
+— `systemctl is-active/show`, `df`/`du`/`free`/`lsblk`/`ps`/`ss`/`stat`/`sha256sum`/
+`journalctl`/`uptime`/`nproc`/`uname`/`hostname`/`id`/`whoami`/`mount`/`findmnt`,
+print-only `sed -n` (no `-i`), `python3 <script> --help|-h`, `rsync --dry-run`,
+read-only `hermes`/`npm`/`omarchy` subcommands, extra `git` read forms — plus a
+prefix-normalization gap (`cd X && ...` / `sudo` obscured the actual verb) and
+missing mutation shapes (`tee`, real `rsync -a`, bootloader generators,
+`omarchy hook install`, profile-prefixed `hermes config set`).
+
+Delivered:
+- **`examples/action_typing_classifier.py`** — the vendored, version-controlled copy
+  of the producer classifier (the live one lives in the plugin; the repo now pins and
+  tests the behavior). Selftest **56/56** (18 mutation / 33 observe / 5 unknown),
+  each newly-added shape pinned by a case.
+- **`examples/epsilon_code_coverage.py`** — read-only proof instrument: reads every
+  recorded terminal/execute_code command from `state.db` and reports the classifier's
+  UNKNOWN% (the ε_code compressible surface).
+- **Result against production ground truth: UNKNOWN 1,262 → 615 (28.0% → 13.6%),
+  classifier coverage 72% → 86.4%** — a 51% reduction in the compressible gap. The
+  residual 13.6% is dominated by inline Python code blobs (`import`/`from`, ~353),
+  `python3 <script>` without a help flag, `ssh` remote-exec, and bare `sudo`/`cd`
+  prefixes with unknown inner verbs — genuinely ambiguous, correctly left UNKNOWN
+  per the "never guess" rule (§4), not shape-coverage failure.
+
+What this does NOT touch: ε_system (honesty marks — the could-have-done-otherwise
+residue) is untouched by construction; the sovereignty remainder is neither measured
+into nor acted upon by the classifier. The Goodhart safeguard holds — the classifier
+only resolves shape, the ε-probe stays read-only. The ε-probe's own diary numbers are
+unchanged this release (it reads the historical diary, which predates the producer);
+the compression materializes forward-only as each new session types at 86.4% instead
+of 72% coverage.
+
+Rollback: `action_typing.py.rollback-20260911` (the v1.1.0 classifier, byte-identical
+reconstruction of the pre-change source) — `mv` it over the plugin file to restore
+28.0% UNKNOWN behavior. Both plugin and vendored copy carry identical logic.
+
+- **`examples/action_typing_classifier.py`** — vendored classifier (56/56 selftest).
+- **`examples/epsilon_code_coverage.py`** — ε_code coverage proof (read-only).
+- **CHANGELOG.md** — this entry.
+- **CURIOSITY.md** — ε thread: the A6 forward-only action's outcome recorded.
+
 ## v0.8.11 — 2026-09-11 — A6 ε-probe: the runtime's own remainder, measured (ε as the Sovereignty Term)
 
 The ε thread ("ε as the Sovereignty Term", Simmering/HIGH — first raised 2026-06-18)
