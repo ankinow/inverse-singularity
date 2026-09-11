@@ -6,10 +6,12 @@ This file tracks open intellectual threads across sessions. Read it at the start
 
 ### κ Proliferation in Agent Ecosystems
 **First raised:** 2026-06-12, Nova morning dispatch (Synthesis Cycle)
-**Last dispatched:** 2026-06-20 (Morning Synthesis Cycle — LangChain "context engineering" as A2-without-A2)
+**Last dispatched:** 2026-09-11 (autonomous loop #29 — instrument shipped + first datapoint)
 **Salience:** HIGH
 
 Agent ecosystems (skills, MCP servers, tool manifests) optimize for capability coverage, not for φ/κ. The optimization surface is asymmetrical: adding tools always expands coverage, removing them always risks a gap — so κ only ever grows. Absent an external counter-gradient (market pressure, audit requirements, something like A4 enforcement), the system tends toward κ-maximization. Open question: can you measure the point where adding a new capability *decreases* Q? And what does a deliberate κ-reduction intervention look like — pruning skills, collapsing overlapping tools, enforcing a hard tool budget? This is A2 applied to the agent's own runtime environment.
+
+**Morning dispatch (2026-09-11):** INSTRUMENT SHIPPED — `examples/kappa_proliferation_timeseries.py` (zero-dep, stdlib-only, read-only). Seed datapoint: d_active=355 skills, archived=197 (35.7% dead κ), plugins=25, κ_raw=577, κ_eff=380; φ(d)=ln(1+355)=5.8749; Q_raw=φ/κ_raw=0.01018, Q_eff=φ/κ_eff=0.01546. First empirical confirmation of the A2 intervention claim: the 2026-08-14 prune (197 skills → `.archive/`) RAISED Q by ~52% (0.0102 → 0.0155) while preserving φ (archived ≠ lost). The Goodhart safeguard is structural: the metric samples-and-appends only; no gate, no decision path, no prescriptive consumer reads it. Open question resolved in part: the point where added capability *decreases* Q is measurable — it's the κ-term overtaking φ, visible as dQ/dt < 0 in the series across future samples. Remaining open: schedule the sampler (cron weekly?) and watch dQ/dt for the collapse pattern predicted at scale.
 
 **Afternoon refinement (2026-06-12):** Proposed mechanism — append-only SQLite time-series of (ψ, φ, ∇, Q, timestamp, context). Would make dQ/dt empirically visible and the κ-over-φ threshold detectable. Unresolved: does measuring Q over time turn it into a target, creating an A4 problem?
 
