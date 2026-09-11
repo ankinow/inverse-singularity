@@ -6,6 +6,49 @@
 
 ---
 
+## v0.8.10 — 2026-09-11 — A5 drift watchdog + anchor fix: the silent regression the instrument exists to catch
+
+The Boundary Paradox thread's execution half (`a5_constraint_provenance.py`)
+caught a real, silent drift on this tick's frontier scan — and, in doing so,
+exposed two of its own gaps now closed:
+
+1. **Caught drift (restored, not just flagged):** `agent.max_turns` had silently
+   regressed **66 → 999** (the A3 deadline, operationalized 2026-08-23) and
+   `delegation.child_timeout_seconds` **3600 → 900** (the measured
+   timeout-storm ceiling) sometime between 2026-08-25 and 2026-09-10 — with no
+   log, no error, no signal. Forensics pinned the boundary: the
+   08-25 `pre-doctrine-restauro` backup still had 66/3600; the 09-10 config
+   (and the 09-11 "canonical-nvidia" repair's own pre-repair backup) had
+   999/900. This is the *same* silent-rebuild-loses-doctrine failure mode as
+   the 2026-08-24 corruption the A5 instrument was built to catch — it recurred
+   and the instrument caught it. Both knobs restored via the sanctioned
+   reversible path (`hermes config set`), re-classified CHOSEN.
+
+2. **Anchor bug fixed:** `memory.memory_char_limit` was anchored at `64000.0`
+   in the instrument, 10× off the real operator-mandated cap (`640000`) —
+   producing a persistent false MIRRORED on a correctly-set knob. Anchor
+   corrected to `640000.0`; the knob now classifies CHOSEN.
+
+3. **`--check` drift-watchdog mode (the durable fix):** the read-only
+   diagnostic always exited 0, so a silent drift was only caught when someone
+   happened to read the report. New `--check` mode converts the classification
+   into a fail-closed gate: any anchored knob **present** in the live config
+   that classifies MIRRORED → exit 1 (names the drifted knobs via a `DRIFT`
+   line); absent knobs stay UNVERIFIED and never fail (a missing constraint
+   cannot be accused of drift). Proven both ways: clean config → exit 0
+   `DRIFT: none`; a deliberately-drifted temp config (999/900) → exit 1
+   `DRIFT: 2 anchored knob(s) regressed`. Backed by a no-agent cron
+   (`ist-a5-drift-watchdog`, `56fba415da49`, daily 06:17) with a stdlib
+   wrapper (`~/.hermes/scripts/ist-a5-drift-watchdog.py`) that is silent when
+   clean and prints the `DRIFT` line when drift is detected — so the next
+   silent regression surfaces automatically instead of waiting for a manual
+   frontier scan.
+
+This is the A2/A3 guard applied to the runtime's own configuration: the
+constraint the agent set for itself (its half-life deadline) must not be
+allowed to silently revert to the far ceiling without a signal. Python-only
+change (no Rust touched; `cargo test` unaffected).
+
 ## v0.8.9 — 2026-09-11 — κ-series dQ/dt reader + selftest + append-only write-safety (`--trend`)
 
 Closes the κ-Proliferation thread's "sole open part" (watch dQ/dt for the

@@ -83,11 +83,11 @@ ANCHORS = {
                  "measured timeout-storm failures."),
     },
     "memory.memory_char_limit": {
-        "anchor": 64000.0,
+        "anchor": 640000.0,
         "kind": "doctrine",
-        "note": ("MEMORY.md caps the curated long-term probe; consolidated "
-                 "weekly (operator-mandated curation cadence). A doctrine "
-                 "limit on the L2 probe."),
+        "note": ("MEMORY.md caps the curated long-term probe at 640,000 chars; "
+                 "consolidated weekly (operator-mandated curation cadence). "
+                 "A doctrine limit on the L2 probe."),
     },
     "approvals.mode": {
         "anchor": "off",
@@ -305,7 +305,45 @@ def main() -> int:
     return 0 if sc.ok else 1
 
 
+def drift_check(values: dict) -> int:
+    """Watchdog mode (`--check`): fail-loud on MIRRORED anchored knobs.
+
+    The read-only main() always exits 0 (a diagnostic), so a *silent* drift —
+    an anchored knob that regresses off its measured anchor (the A3 deadline
+    66→999 recurrence) — is only caught when someone happens to read the
+    report. This mode converts the classification into a gate for a cron: an
+    anchored knob that is PRESENT in the live config but classifies MIRRORED
+    is a drift event → exit 1 (fail-closed). Absent knobs stay UNVERIFIED and
+    never fail (a missing constraint cannot be accused of drift). Prints the
+    same report; adds a DRIFT line naming the drifted knobs.
+
+    This is the A2/A3 guard applied to the runtime's own configuration: the
+    constraint the agent set for itself (its half-life deadline) must not be
+    allowed to silently revert to the far ceiling without a signal.
+    """
+    results: list[tuple[str, str, str]] = []
+    for key, spec in ANCHORS.items():
+        scalar = values.get(key)
+        cls = "UNVERIFIED" if scalar is None else classify(scalar, spec)
+        results.append((key, cls, scalar if scalar is not None else "<absent>"))
+
+    print(report(values))
+    drift_keys = [
+        k for k, c, _ in results
+        if c == "MIRRORED" and k in values  # present-but-drifted = a real event
+    ]
+    if drift_keys:
+        print(f"DRIFT: {len(drift_keys)} anchored knob(s) regressed off their "
+              f"measured anchor (fail-closed): {', '.join(drift_keys)}")
+        return 1
+    print("DRIFT: none (all present anchored knobs sit on their measured anchor)")
+    return 0
+
+
 if __name__ == "__main__":
     if "--selftest" in sys.argv:
         sys.exit(selftest())
+    if "--check" in sys.argv:
+        values = load_yaml_scalar(CONFIG)
+        sys.exit(drift_check(values))
     sys.exit(main())
