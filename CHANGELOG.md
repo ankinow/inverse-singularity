@@ -6,6 +6,45 @@
 
 ---
 
+## v0.8.11 — 2026-09-11 — A6 ε-probe: the runtime's own remainder, measured (ε as the Sovereignty Term)
+
+The ε thread ("ε as the Sovereignty Term", Simmering/HIGH — first raised 2026-06-18)
+asked two questions every Q instrument (a3_*, a4_action_typing, a5) left un-measured:
+*"does ε = 0 violate A4?"* and *"is the boundary between ε_code and ε_system itself
+an ε?"*. Every prior instrument reads Q = φ/κ; none ever read the ε remainder — the gap
+between what the runtime's constraints prescribe and what it actually did.
+
+`examples/a6_epsilon_probe.py` (stdlib-only, read-only) is the first instrument to
+read ε out of the production diary, decomposing it along the thread's own axis:
+
+- **ε_code** (accidental, compressible): untyped ambiguous tool calls (a `>T:terminal`
+  with no `⊗S:` typing — the action-typing producer returned UNKNOWN) + mislabels
+  (a `⊗S:mutation` riding an observe-only tool, or the inverse).
+- **ε_system** (chosen, must be protected): honesty/decision marks (`⊗Er:`/`⊗RCA:`/
+  `!Dc:`/`!Dm:`/`⊗RES:`) — the residue of real work the agent chose to record, the
+  signature of a system that "could have done otherwise".
+
+**First production measurement (2026-09-11, live diary):** ε_code = 1.32, ε_system =
+0.021, verdict **SOVEREIGN-CODE**. Two findings fall out directly:
+
+1. **ε_system > 0 — A4 holds.** The system records a chosen remainder (104 honesty
+   marks), so it passes the thread's own "surrender collapses the equation" test. The
+   could-have-done-otherwise residue is real and present.
+2. **ε_code dominates 63×, and the dominant term is terminal-UNKNOWN — not mislabels.**
+   The enforcement gap is not that the agent types intent *wrong* (only 117 mislabels
+   across 19,183 tool lines, 0.6%), but that the action-typing classifier returns UNKNOWN
+   for 6,443 ambiguous terminal calls the diary records without intent. That is a
+   *compressible* gap: the boundary between ε_code and ε_system is measurable, and it
+   lands squarely on the compressible side — so the thread's "is the boundary itself an
+   ε?" gets a first empirical answer: **the boundary is sharp and sits inside ε_code.**
+
+The actionable answer to the thread's open question is therefore: ε is not
+unitary. The runtime's ε is ~99% compressible enforcement gap (extend the terminal-shape
+classifier; the shapes are already enumerated in `action_typing.py`'s observe/mutation
+cases) and ~1% irreducible sovereignty residue. Read-only, fail-closed-by-abstention
+never acts (Goodhart preserved); `--selftest` (3 verdict paths + math) proves each
+branch fires. Python-only (no Rust touched; `cargo test` unaffected).
+
 ## v0.8.10 — 2026-09-11 — A5 drift watchdog + anchor fix: the silent regression the instrument exists to catch
 
 The Boundary Paradox thread's execution half (`a5_constraint_provenance.py`)
