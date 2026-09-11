@@ -16,3 +16,4 @@ Cargo.lock.bak
 framework/__pycache__/
 __pycache__/
 *.pyc
+/data/
