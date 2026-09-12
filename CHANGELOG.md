@@ -6,6 +6,12 @@
 
 ---
 
+## v0.8.17 — 2026-09-12 — ε_code compressed further: execute_code mutation/observe shapes (94.7% coverage)
+
+The v0.8.12 entry left a named residual — its "13.6% dominated by inline Python blobs (`import`/`from`), `python3 <script>`, bare `sudo`/`cd`". The vendored classifier (`examples/action_typing_classifier.py`) now resolves the *execute_code* blob shape, compressing the residual. New mutation patterns (shutil.copy2/copyfile, `.open('a'|'w')` append/write, bare `f.write`/`fh`/`out`/`dst` handles, `requests.post/put/patch/delete`, `os.remove/unlink/rename/makedirs/...`, `subprocess` with a real output-artifact verb magick/ffmpeg/cargo/rustc) and new observe patterns (sqlite3 `mode=ro`, Path reads `.read_text`/`.iterdir`/`.glob`, path probes `.exists`/`.is_file`, `os.listdir/getenv`, `json.loads`, bare `print`) — each mutation shape fires first so a blob carrying both a read and a write still classifies mutation (never-guess preserved).
+
+**Result against live state.db (5,023 commands measured): UNKNOWN 5.3% (was 13.6% at v0.8.12, 28.0% at v0.7.9-era), coverage 94.7% (was 86.4%)** — the compressible ε_code gap collapsed another 8.3 points toward the ε_system residue, without the instrument ever reading ε prescriptively (Goodhart / A4 preserved). Selftest extended to 22 mutate / 37 observe / 5 unknown; py_compile clean. Sovereignty term ε_system untouched by construction.
+
 ## v0.8.16 — 2026-09-12 — ε-probe taxonomy drift fixed: execute_code/browser_exec are ambiguous-by-design
 
 **The ε-probe under-counted its own ε_code.** The v0.8.11 instrument

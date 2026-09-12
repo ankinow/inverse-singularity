@@ -100,7 +100,19 @@ _MUTATION_VERB_PATTERNS = (
     # python-ish mutation payloads (execute_code): write-mode opens / Path writes / shutil
     r"\bopen\s*\([^)]*['\"][waxa+]?['\"]\s*\)",
     r"\.write_text\s*\(|\.write_bytes\s*\(|\.mkdir\s*\(|\.unlink\s*\(|\.rmdir\s*\(",
-    r"\bshutil\s*\.\s*(copy|copytree|move|rmtree)\b",
+    r"\bshutil\s*\.\s*(copy|copy2|copyfile|copytree|move|rmtree)\b",
+    # ε_code compression — execute_code mutation shapes that were UNKNOWN (2026-09-12):
+    #   `.open('a'|'w')` append/write-mode path open (the `with p.open('a') as f: f.write`
+    #   diary-append shape) and a bare handle `.write(` (excludes sys.stdout/stderr).
+    r"\.open\s*\([^)]*['\"][wa]\+?['\"]\s*[,)]",
+    r"(?<![_\w.])f\.write\s*\(|(?<![_\w.])(?:fh|fp|out|dst|w)\.write\s*\(",
+    #   HTTP state-changing verbs in code (requests.post/put/patch/delete)
+    r"\brequests?\s*\.\s*(post|put|patch|delete)\s*\(",
+    #   os-level destructive code ops (os.remove/unlink/rename/makedirs/rmdir/mkdir)
+    r"\bos\s*\.\s*(remove|unlink|rename|replace|makedirs|rmdir|mkdir|symlink)\s*\(",
+    #   subprocess with a real output path (magick/ffmpeg/convert writing a file): the
+    #   command embeds an output target that mutates the fs.
+    r"\bsubprocess\s*\.\s*(?:run|call|check_output|check_call|Popen)\s*\([^)]*['\"](?:magick|convert|ffmpeg|ffprobe|cargo|go|rustc|cc|gcc)",
 )
 # write-redirects: > file and >> append mutate the fs even via echo/cat. Guard
 # against false positives: the target must look like a path (word/dot/slash/tilde/$)
@@ -138,6 +150,16 @@ _OBSERVE_PREFIX_PATTERNS = (
     r"\bhermes\s+(--profile|-p)\s+\S+\s+config\s+get\b",
     # read-only omarchy subcommands
     r"\bomarchy\s+(system\s+stats|menu\b[^|;&]*--print|update\s+--help|hook\s+install\s+--help|--help|--version)\b",
+    # ε_code compression — execute_code read-only shapes (2026-09-12): these fire only
+    # AFTER every mutation pattern above has failed to match (mutation wins), so a blob
+    # carrying e.g. `sqlite3.connect(..., mode=ro)` AND `f.write(...)` still classifies
+    # mutation. Each shape names an unambiguous read.
+    r"\bsqlite3\s*\.\s*connect\s*\([^)]*\bmode\s*=\s*ro\b",   # read-only DB open (mode=ro)
+    r"\.read_text\s*\(|\.read_bytes\s*\(|\.iterdir\s*\(|\.glob\s*\(",  # Path reads
+    r"\.exists\s*\(|\.is_symlink\s*\(|\.is_dir\s*\(|\.is_file\s*\(",    # Path probes
+    r"\bos\s*\.\s*(listdir|readlink|getenv|environ\.get|path\.(exists|isfile|isdir|realpath|abspath)|stat)\s*\(",  # os reads
+    r"\bjson\s*\.\s*loads?\s*\(",                                    # json decode (pure)
+    r"\bprint\s*\(",                                                 # stdout emit (no fs write)
 )
 
 
@@ -248,6 +270,11 @@ def _selftest() -> int:
         ("write_file", {"path": "/tmp/y"}),
         ("delegate_task", {"goal": "build it"}),
         ("terminal", {"command": "curl -d '{\"a\":1}' https://api.example.com/x"}),
+        # ε_code compression — execute_code mutation shapes (2026-09-12)
+        ("execute_code", {"code": "with p.open('a',encoding='utf-8') as f: f.write(entry)"}),
+        ("execute_code", {"code": "requests.post('https://api/x', json={'a':1})"}),
+        ("execute_code", {"code": "os.remove('/tmp/x'); os.makedirs('/tmp/y')"}),
+        ("execute_code", {"code": "shutil.rmtree('/tmp/z')"}),
     ]
     cases_observe: list[tuple[str, dict]] = [
         ("read_file", {"path": "/tmp/x"}),
@@ -283,6 +310,11 @@ def _selftest() -> int:
         ("terminal", {"command": "ssh -o BatchMode=yes bundinha 'df -h /; free -h; nproc'"}),
         ("terminal", {"command": "git stash list; git tag -l"}),
         ("process", {"action": "poll", "session_id": "abc"}),
+        # ε_code compression — execute_code read-only shapes (2026-09-12)
+        ("execute_code", {"code": "c=sqlite3.connect('file:/mnt/hermes/state.db?mode=ro',uri=True)"}),
+        ("execute_code", {"code": "print(Path('/tmp/x').read_text(errors='replace'))"}),
+        ("execute_code", {"code": "os.listdir('/tmp'); os.getenv('HOME')"}),
+        ("execute_code", {"code": "import json; print(json.loads(open('/tmp/a.json').read()))"}),
     ]
     cases_unknown: list[tuple[str, dict]] = [
         ("terminal", {}),                       # no command evidence
