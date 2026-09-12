@@ -6,6 +6,16 @@
 
 ---
 
+## v0.8.19 — 2026-09-12 — the ε_code measure made honest: producer↔vendored sync invariant falsified
+
+The v0.8.16 drift (the ε-probe's own `AMBIGUOUS_TOOLS = {"terminal"}` silently dropping `execute_code`/`browser_exec` for a whole release) named a failure mode no instrument guarded against: **the measured classifier and the production producer are two files, and nothing asserted they stayed byte-identical.** `examples/epsilon_code_coverage.py` — the instrument that reports the UNKNOWN% (ε_code's compressible surface) — imported the vendored classifier but never checked it against the live `session-scribe/action_typing.py` that actually types the diary. A future silent fork would make the coverage number a measurement *against a classifier the production diary never used* — a lie dressed as evidence.
+
+This release closes that gap with a **`--synccheck`** mode (sha256 byte-identity over the vendored copy vs the producer; exit 1 on DRIFT) and a **`--selftest`** (5/5: classifier import, mutation fire on `git commit+push`, observe fire on `systemctl is-active`, UNKNOWN never-guess on a bare `python3` driver, and sync OK on the live files). The negative control is proven, not asserted: a byte-injected copy hashes differently and the detector distinguishes it from the genuine sync.
+
+**Result:** `--synccheck` → `SYNC: OK — producer == vendored (byte-identical, hashes equal)`; live coverage unchanged at **96.2% (UNKNOWN 3.8%, 191/5087)** — the compression claims remain valid, now with the sync invariant pinned rather than manually re-checked. The coverage report itself now prints a `producer sync` line so no future run can silently report a drifted measure.
+
+Read-only discipline preserved: `--synccheck`/`--selftest` are deterministic checks (exit 0/1), never a metric gate; the UNKNOWN% remains reported-not-acted-upon.
+
 ## v0.8.18 — 2026-09-12 — ε_code compressed a third time: terminal mutation/read shapes (96.2% coverage)
 
 The v0.8.17 entry closed its *execute_code*-blob residual but left the *terminal* side at 5.3% UNKNOWN — the remaining clusters were distinct, named shell shapes, not inline Python. This release compresses them, leaving a residual dominated by genuinely-ambiguous driver blobs (variable-argument `subprocess.run(a, …)` helpers, bare `python3 <script>` with no verb/hint), which the never-guess discipline correctly refuses to classify.
