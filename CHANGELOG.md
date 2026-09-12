@@ -6,6 +6,42 @@
 
 ---
 
+## v0.8.16 — 2026-09-12 — ε-probe taxonomy drift fixed: execute_code/browser_exec are ambiguous-by-design
+
+**The ε-probe under-counted its own ε_code.** The v0.8.11 instrument
+(`examples/a6_epsilon_probe.py`) shipped with `AMBIGUOUS_TOOLS = {"terminal"}`,
+drifting from the canonical doctrine (`theory/action-typing.md` §2: "`terminal`/
+`execute_code`/`browser_exec` are ambiguous by design") and from the producer's
+own taxonomy (`session-scribe/action_typing.py` line 41: `AMBIGUOUS_TOOLS =
+{"terminal", "execute_code", "browser_exec"}`). The consequence was structural:
+`execute_code` (1,276 diary lines) and `browser_exec` (22 lines) that never
+received a `⊗S:` marker were silently dropped from `untyped_ambiguous`,
+deflating ε_code. A secondary drift rode along: `execute_code` sat in the
+probe's `MUTATION_TOOLS`, so a legitimate `⊗S:observe` on a print-only
+`execute_code` snippet was falsely flagged a mislabel.
+
+Fix (single taxonomy realignment, no runtime behavior change):
+  * `AMBIGUOUS_TOOLS` → `{"terminal", "execute_code", "browser_exec"}`;
+  * `MUTATION_TOOLS` → `{"patch", "write_file"}` (the *unambiguous* mutation
+    kinds — the only set the mislabel cross-check is valid against);
+  * `execute_code` removed from `OBSERVE_TOOLS` too (it is ambiguous, not
+    observe).
+
+**Corrected production read (2026-09-12):** `untyped ambiguous 6,523 → 7,551`
+(+1,028 execute_code/browser_exec lines now counted), `mislabels 164 → 28`
+(−136 false positives), `ε_code 1.1585 → 1.3092`; ε_system unchanged (0.0242),
+verdict stays SOVEREIGN-CODE. The probe now measures the full compressible
+surface instead of silently discarding the execute_code axis.
+
+Two new selftest cases pin the fix regression-proof:
+`ambiguous-exec` (untyped execute_code → untyped_ambiguous=1) and
+`exec-observe` (`⊗S:observe` on execute_code → mislabels=0). Both FAIL against
+the pre-fix `{"terminal"}` drift (proved: `ambiguous-exec` 0 vs want 1;
+`exec-observe` mislabels=1 vs want 0), so the drift cannot silently return.
+Selftest 6/6 PASS; `py_compile` clean on all `examples/*.py`.
+
+---
+
 ## v0.8.15 — 2026-09-11 — crate identity re-aligned: Cargo.toml was 14 releases behind
 
 **A5 applied to the crate's own version field.** A frontier scan surfaced the

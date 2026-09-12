@@ -41,14 +41,27 @@ import sys
 
 DIARY = os.environ.get("HERMES_DIARY", "/mnt/hermes/diary")
 
-# Canonical tool families (matches a4_action_typing doctrine §2).
-MUTATION_TOOLS = {"patch", "write_file", "execute_code"}
+# Canonical tool families (matches a4_action_typing doctrine §2 + producer's
+# action_typing.py `AMBIGUOUS_TOOLS`). The ε-probe v0.8.11 shipped with
+# `AMBIGUOUS_TOOLS = {"terminal"}` — a drift from the doctrine, which names
+# `terminal`/`execute_code`/`browser_exec` as *ambiguous by design* (§2, line
+# 55: "`terminal`/`execute_code`/`browser_exec` are ambiguous by design").
+# Consequence: `execute_code`/`browser_exec` lines that never received a
+# `⊗S:` marker were silently dropped from `untyped_ambiguous`, under-counting
+# ε_code. Fixed in v0.8.16 (see CHANGELOG).
+#
+# MUTATION/OBSERVE here name the *unambiguous* tool kinds only — the set the
+# mislabel cross-check is valid against. `execute_code` is ambiguous (a
+# print-only Python snippet is observe, a write-mode one is mutation), so it
+# belongs to AMBIGUOUS_TOOLS, NOT MUTATION_TOOLS; treating it as unambiguous
+# mutation would mislabel a legitimate `⊗S:observe` on execute_code.
+MUTATION_TOOLS = {"patch", "write_file"}
 OBSERVE_TOOLS = {
     "read_file", "skill_view", "search_files", "web_search", "web_extract",
-    "memory", "process", "browser_exec", "tool_search", "tool_describe", "tool_call",
+    "memory", "process", "tool_search", "tool_describe", "tool_call",
     "web_extract", "delegate_task",
 }
-AMBIGUOUS_TOOLS = {"terminal"}
+AMBIGUOUS_TOOLS = {"terminal", "execute_code", "browser_exec"}
 # honesty / decision family = the *chosen* residue (ε_system)
 HONESTY = ("⊗Er:", "⊗RCA:", "⊗RES:", "!Dc:", "!Dm:")
 
@@ -210,6 +223,20 @@ def _selftest():
 >T:read_file y
 ⊗S:observe
 """
+    # 4: AMBIGUOUS-EXECUTECODE — an untyped execute_code must count as
+    #    untyped_ambiguous (v0.8.16 fix: execute_code is ambiguous-by-design,
+    #    not unambiguous mutation). A regression of the `AMBIGUOUS_TOOLS =
+    #    {"terminal"}` drift would drop this line and under-count ε_code.
+    d4 = """>T:execute_code
+print(1)
+"""
+    # 5: EXECUTECODE-OBSERVE — a `⊗S:observe` on an execute_code is LEGITIMATE
+    #    (print-only snippet), NOT a mislabel. A regression that keeps
+    #    execute_code in MUTATION_TOOLS would flag this as a mislabel.
+    d5 = """>T:execute_code
+print(1)
+⊗S:observe
+"""
     cases = [
         ("no-epsilon", d1, "NO-EPSILON"),
         ("code-heavy", d2, "CODE-HEAVY"),
@@ -222,6 +249,18 @@ def _selftest():
         ok &= got == want
         print(f"  selftest[{name:11s}] {'PASS' if got == want else f'FAIL (want {want})'}  "
               f"ε_code={ec:.2f} ε_system={es:.2f}")
+    # 4/5: pin the v0.8.16 fix — execute_code is ambiguous-by-design:
+    #   untyped execute_code counts as untyped_ambiguous; ⊗S:observe on it is
+    #   NOT a mislabel. (Regressions would drop execute_code from the tally or
+    #   flag its legitimate observe as a mislabel.)
+    t4 = _parse_text(d4)
+    ok &= t4["untyped_ambiguous"] == 1
+    print(f"  selftest[ambiguous-exec] {'PASS' if t4['untyped_ambiguous'] == 1 else 'FAIL'}  "
+          f"untyped_ambiguous={t4['untyped_ambiguous']} (want 1)")
+    t5 = _parse_text(d5)
+    ok &= t5["mislabels"] == 0 and t5["typed_observe"] == 1
+    print(f"  selftest[exec-observe ] {'PASS' if (t5['mislabels'] == 0 and t5['typed_observe'] == 1) else 'FAIL'}  "
+          f"mislabels={t5['mislabels']} typed_observe={t5['typed_observe']} (want 0/1)")
     # math: ε non-negative
     ec, es = compute(_parse_text(d3))
     assert ec >= 0 and es >= 0
