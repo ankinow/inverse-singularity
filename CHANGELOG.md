@@ -6,6 +6,34 @@
 
 ---
 
+## v0.8.15 — 2026-09-11 — crate identity re-aligned: Cargo.toml was 14 releases behind
+
+**A5 applied to the crate's own version field.** A frontier scan surfaced the
+silent drift the `--check` watchdog exists to catch, but located in the runtime's
+*identity* rather than its knobs: `Cargo.toml`'s `version` had sat at `0.7.0`
+since the Delegation Gateway (2026-08-14) while the canonical CHANGELOG lineage
+shipped fourteen minor releases (v0.8.0 → v0.8.14). The drift was *declared*
+rather than enacted: the v0.8.0 commit's own message reads "bumps version to
+0.8.0" and touched `src/lib.rs` (the A3-as-subsumed canonical test + docstrings),
+but never wrote `Cargo.toml`. `cargo metadata` therefore reported
+`ist_engine v0.7.0` against a `NEXUS V3.1.0-edge` / v0.8.14 CHANGELOG — two
+version identities disagreeing by fourteen steps.
+
+The fix is a single-field alignment, not a behavior change (the crate's runtime
+semantics are unchanged; the v0.8.x releases were Python analytical instruments +
+theory docs + one tested `src/lib.rs` docstring/test commit). `version` now reads
+`0.8.14`, matching the CHANGELOG head so the crate, the changelog, and HEAD agree
+on a single version lineage. Honest scope note: `rust-version = "1.74"` (the MSRV
+floor) is left untouched — it is a compatibility declaration, not identity, and
+changing it is a semantic decision for a future release.
+
+Verification: `cargo test --release` 26/26 green; `cargo metadata` reports
+`ist_engine 0.8.14`; all 18 `examples/*.py` `py_compile` clean. This entry itself
+is the first non-instrument release in the v0.8.x run — pure hygiene, closing the
+last silent drift the A5 lineage could reach.
+
+---
+
 ## v0.8.14 — 2026-09-11 — self-bloat trended: append-only time-series for CURIOSITY.md's κ
 
 The v0.8.13 instrument (`curiosity_kappa.py`) made the self-bloat recursion

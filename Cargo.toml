@@ -1,6 +1,6 @@
 [package]
 name = "ist_engine"
-version = "0.7.0"          # bumped from 0.6.0 — Delegation Gateway + A2-canonical quality (2026-08-14)
+version = "0.8.14"         # aligned to CHANGELOG lineage 2026-09-11 — crate identity had silently drifted 14 releases behind (0.7.0 → 0.8.14; the v0.8.0 commit declared the bump but never wrote Cargo.toml)
 edition = "2021"
 rust-version = "1.74"
 description = "IST — Imposition-Guided Selection Engine. The runtime expression of Inverse Singularity Theory, in Rust."
