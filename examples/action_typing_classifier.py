@@ -85,12 +85,16 @@ _MUTATION_VERB_PATTERNS = (
     r"\b((npx\s+)?wrangler\s+(deploy|d1 execute|kv:key put|r2 object put))\b",
     r"\bhermes\s+config set\b",
     r"\bhermes\s+(--profile|-p)\s+\S+\s+config set\b",
-    r"\bhermes\s+cron\s+(run|create|update|delete|resume|disable|enable)\b",
+    r"\bhermes\s+cron\s+(run|create|add|update|delete|resume|disable|enable)\b",
     r"\bhermes\s+gateway\s+restart\b",
     r"\bhermes\s+kanban\s+(claim|complete|block|archive|assign)\b",
     r"\b(curl|wget)\b[^|;&]*\s(-d\b|--data\b|-T\b|-X\s*(POST|PUT|PATCH|DELETE)\b)",
     r"\bsystemctl\s+(start|stop|restart|enable|disable|reload|mask|unmask|set-property|daemon-reload)\b",
     r"\bkill\b|\bpkill\b|\breboot\b|\bshutdown\b",
+    # filesystem mutation: umount detaches a device (mount-read is in observe list)
+    r"\bumount\b",
+    # install copies + sets permissions on a file (the `install -m 755 SRC /usr/local/bin/` shape)
+    r"\binstall\s+(?:-[A-Za-z]+\s+)*[^-]",
     # known system-image writes (bootloader initramfs/generators)
     r"\b(mkinitcpio|limine-\S*|grub-(install|mkconfig)|update-grub|dracut)\b",
     # rsync that actually copies (no dry-run / list-only / itemize-only flag)
@@ -110,9 +114,14 @@ _MUTATION_VERB_PATTERNS = (
     r"\brequests?\s*\.\s*(post|put|patch|delete)\s*\(",
     #   os-level destructive code ops (os.remove/unlink/rename/makedirs/rmdir/mkdir)
     r"\bos\s*\.\s*(remove|unlink|rename|replace|makedirs|rmdir|mkdir|symlink)\s*\(",
-    #   subprocess with a real output path (magick/ffmpeg/convert writing a file): the
+    # subprocess with a real output path (magick/ffmpeg/convert writing a file): the
     #   command embeds an output target that mutates the fs.
     r"\bsubprocess\s*\.\s*(?:run|call|check_output|check_call|Popen)\s*\([^)]*['\"](?:magick|convert|ffmpeg|ffprobe|cargo|go|rustc|cc|gcc)",
+    #   hyprctl reload re-applies compositor config (mutation); reads handled in observe
+    r"\bhyprctl\s+\S*\s*reload\b|\bhyprctl\s+reload\b",
+    #   hermes_tools mutation imports in execute_code blobs: patch/write_file imported
+    #   and called mutate the managed system (the `from hermes_tools import patch, ...` shape)
+    r"\bfrom\s+hermes_tools\s+import\b[^\n]*\b(patch|write_file)\b",
 )
 # write-redirects: > file and >> append mutate the fs even via echo/cat. Guard
 # against false positives: the target must look like a path (word/dot/slash/tilde/$)
@@ -129,7 +138,7 @@ _OBSERVE_PREFIX_PATTERNS = (
     r"\bpython3?\s+-c\b|\bnode\b(-v)?\b|\bbun\b",
     # build/test/lint checks are observation per doctrine §2 (derived artifacts only)
     r"\bcargo\s+(build|test|check|run|clippy|fmt\s+--check)\b",
-    r"\bnpm\s+run\s+(build|test|check|lint)\b|\bpytest\b|\bvitest\b|\bnode\s+--test\b",
+    r"\bnpm\s+run\s+(build|test|check|lint|typecheck|type-check)\b|\bpytest\b|\bvitest\b|\bnode\s+--test\b",
     # pure-read system/status commands (the dominant UNKNOWN cluster)
     r"\bsystemctl\s+(?:--user\s+|--system\s+)?(is-active|is-enabled|is-failed|list-units|list-unit-files|list-dependencies|show|status|cat)\b",
     r"\b(df|du|free|lscpu|lsblk|blkid|ps|ss|stat|sha1sum|sha256sum|md5sum)\b",
@@ -150,6 +159,18 @@ _OBSERVE_PREFIX_PATTERNS = (
     r"\bhermes\s+(--profile|-p)\s+\S+\s+config\s+get\b",
     # read-only omarchy subcommands
     r"\bomarchy\s+(system\s+stats|menu\b[^|;&]*--print|update\s+--help|hook\s+install\s+--help|--help|--version)\b",
+    # ε_code compression — terminal read-only shapes (2026-09-12): status/version probes
+    # and read subcommands that were UNKNOWN. Mutation checks run first, so `install`
+    # (mutation) is never shadowed, and `omarchy <verb>` reads stay below its `set`/`pkg`.
+    r"\b(pstree|command\s+-v|which)\b",                                     # process-tree / which
+    r"\b[a-z0-9][\w./-]*\s+--version\b",                                   # <binary> --version probe
+    r"\bhermes\s+(status|computer-use\s+doctor)\b",                        # hermes status/doctor
+    r"\bhermes\s+cron\s+tick\b",                                          # cron tick (dispatcher, not mutate)
+    r"\bhyprctl\s+(monitors|configerrors|workspaces|clients|activewindow|activeworkspace|version)\b",
+    r"\bomarchy\s+(default|installed|toggle\s+\S+\s+(status|--status)|weather\s+location|theme\s+bg\s+current|bar\s+defaults|channel\s+current|plugin\s+list\s+--json|config\s+--help|monitor\s+status|menu\s+--help|launch\s+config\s+editor\s+--help|plugin\s+validate\s+--help|theme\s+set\s+--help|default\s+(agent|browser|terminal|editor))",
+    # bare read_file / sqlite3 SELECT via terminal (tool name leaked into shell)
+    r"\bread_file\s+\S+\b",                                               # read_file <path>
+    r"\bsqlite3\b[^|;&]*['\"]\s*SELECT\b",                               # sqlite3 <db> "SELECT ..."
     # ε_code compression — execute_code read-only shapes (2026-09-12): these fire only
     # AFTER every mutation pattern above has failed to match (mutation wins), so a blob
     # carrying e.g. `sqlite3.connect(..., mode=ro)` AND `f.write(...)` still classifies
@@ -275,6 +296,14 @@ def _selftest() -> int:
         ("execute_code", {"code": "requests.post('https://api/x', json={'a':1})"}),
         ("execute_code", {"code": "os.remove('/tmp/x'); os.makedirs('/tmp/y')"}),
         ("execute_code", {"code": "shutil.rmtree('/tmp/z')"}),
+        # ε_code compression — 3rd pass (2026-09-12): terminal mutation shapes
+        ("terminal", {"command": "install -m 755 /src/x.py /usr/local/bin/x"}),
+        ("terminal", {"command": "sudo umount /run/media/lermf/DADOS_SDA1_ro"}),
+        ("terminal", {"command": "hermes cron add --name x --schedule \"17 6 * * *\" --no-agent"}),
+        ("terminal", {"command": "hyprctl reload"}),
+        ("terminal", {"command": "hyprctl configerrors/reload"}),
+        ("execute_code", {"code": "from hermes_tools import patch, read_file; patch('a','b','c')"}),
+        ("execute_code", {"code": "from hermes_tools import terminal, write_file; write_file('x','y')"}),
     ]
     cases_observe: list[tuple[str, dict]] = [
         ("read_file", {"path": "/tmp/x"}),
@@ -315,6 +344,19 @@ def _selftest() -> int:
         ("execute_code", {"code": "print(Path('/tmp/x').read_text(errors='replace'))"}),
         ("execute_code", {"code": "os.listdir('/tmp'); os.getenv('HOME')"}),
         ("execute_code", {"code": "import json; print(json.loads(open('/tmp/a.json').read()))"}),
+        # ε_code compression — 3rd pass (2026-09-12): terminal read shapes
+        ("terminal", {"command": "pstree -alp 286882"}),
+        ("terminal", {"command": "command -v strace || true"}),
+        ("terminal", {"command": "rustc --version"}),
+        ("terminal", {"command": "hermes status --all"}),
+        ("terminal", {"command": "hermes computer-use doctor"}),
+        ("terminal", {"command": "hermes cron tick"}),
+        ("terminal", {"command": "hyprctl monitors all"}),
+        ("terminal", {"command": "hyprctl configerrors"}),
+        ("terminal", {"command": "omarchy default agent"}),
+        ("terminal", {"command": "omarchy plugin list --json"}),
+        ("terminal", {"command": "npm run typecheck --workspace apps/desktop"}),
+        ("terminal", {"command": "read_file /home/lermf/.hermes/state/x.md"}),
     ]
     cases_unknown: list[tuple[str, dict]] = [
         ("terminal", {}),                       # no command evidence

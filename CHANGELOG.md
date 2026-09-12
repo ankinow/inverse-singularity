@@ -6,6 +6,16 @@
 
 ---
 
+## v0.8.18 — 2026-09-12 — ε_code compressed a third time: terminal mutation/read shapes (96.2% coverage)
+
+The v0.8.17 entry closed its *execute_code*-blob residual but left the *terminal* side at 5.3% UNKNOWN — the remaining clusters were distinct, named shell shapes, not inline Python. This release compresses them, leaving a residual dominated by genuinely-ambiguous driver blobs (variable-argument `subprocess.run(a, …)` helpers, bare `python3 <script>` with no verb/hint), which the never-guess discipline correctly refuses to classify.
+
+New **mutation** patterns: `install -m <mode> SRC DEST` (copies + chmods into bin — 8 live hits), `umount` (filesystem detach; `mount` was already a read), `hermes cron add` (dispatcher mutation, added to the cron-mutation set), `hyprctl … reload` / `hyprctl reload` (compositor config re-apply), and the `from hermes_tools import … patch|write_file` execute_code shape (mutation tools leaked into shell blobs).
+
+New **observe** patterns: `pstree`/`command -v` channel/which probes, a generic `<binary> --version` probe (`rustc`/`wrangler`/`himalaya`/`cloudflared`/`rtk`/`agy` — 6+ live hits), `hermes status`/`computer-use doctor`/`cron tick`, `hyprctl monitors|configerrors|workspaces|clients|activewindow|activeworkspace|version`, the long tail of `omarchy` read subcommands (`default`/`installed`/`toggle … status`/`weather location`/`theme bg current`/`bar defaults`/`channel current`/`plugin list --json`/`config --help`/`monitor status`/`menu --help`/`launch config editor --help`/`plugin validate --help`/`theme set --help`), `npm run typecheck`, bare `read_file <path>` and `sqlite3 <db> "SELECT …"` (tool names leaked into terminal).
+
+**Result against live state.db (5,052 commands measured): UNKNOWN 3.8% (was 5.3% at v0.8.17, 13.6% at v0.8.12, 28.0% at v0.7.9-era), coverage 96.2% (was 94.7%)** — another 1.5 points of the compressible ε_code collapsed toward the ε_system residue, which is untouched by construction. Every mutation shape fires before any observe shape, so a blob holding both still classifies mutation; the `--version` observe probe is gated behind the full mutation list (never shadows `install`/`rm`/etc.). Selftest extended to 29 mutate / 49 observe / 5 unknown (24 new pinned cases); py_compile clean.
+
 ## v0.8.17 — 2026-09-12 — ε_code compressed further: execute_code mutation/observe shapes (94.7% coverage)
 
 The v0.8.12 entry left a named residual — its "13.6% dominated by inline Python blobs (`import`/`from`), `python3 <script>`, bare `sudo`/`cd`". The vendored classifier (`examples/action_typing_classifier.py`) now resolves the *execute_code* blob shape, compressing the residual. New mutation patterns (shutil.copy2/copyfile, `.open('a'|'w')` append/write, bare `f.write`/`fh`/`out`/`dst` handles, `requests.post/put/patch/delete`, `os.remove/unlink/rename/makedirs/...`, `subprocess` with a real output-artifact verb magick/ffmpeg/cargo/rustc) and new observe patterns (sqlite3 `mode=ro`, Path reads `.read_text`/`.iterdir`/`.glob`, path probes `.exists`/`.is_file`, `os.listdir/getenv`, `json.loads`, bare `print`) — each mutation shape fires first so a blob carrying both a read and a write still classifies mutation (never-guess preserved).
