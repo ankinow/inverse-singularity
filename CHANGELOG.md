@@ -6,6 +6,21 @@
 
 ---
 
+## v0.8.24 — 2026-09-13 — κ-trend definitional-break guard: the collapse reader stops fabricating redefinition as collapse
+
+The `kappa_proliferation_timeseries.py --trend` reader reported `collapse: true` (and `monotone_drops: 5`) on the live 7-sample series — and the joint reader translated that into a weekly `compress-paradox` alarm (`axiom_joint_trend.py --check`). Both were **false positives of a single root cause**: the κ metric gained two new terms (toolsets + MCP) on 2026-09-11, so the series silently mixed two *definitions* of κ. Samples 1-2 (κ_raw=577, pre-terms) and samples 3-7 (κ_raw=615, with-terms) are incommensurable — the 577→615 step is a **redefinition**, not proliferation, yet the trend reader compared across it and manufactured a collapse that was never in the runtime.
+
+This release fixes the measure at its source (the trend reader, single source of truth — the joint reader already imports `compute_trend`, so the correction propagates automatically):
+
+- **`_kappa_def_fingerprint`** — a sample's κ-definition is structurally encoded in the data already: pre-term rows carry `NULL` in the `toolsets_enabled` column (the ALTER TABLE migration left them NULL), post-term rows carry a count. No new column needed.
+- **`_definitional_breaks`** — detects where the definition changes between adjacent samples, marking epoch boundaries.
+- **`compute_trend` is now epoch-local**: the headline `collapse` verdict is computed only over the *current* definitional epoch (the contiguous suffix sharing the latest κ-definition). A κ-definition break makes earlier samples incommensurable, so comparing across it is meaningless. The reader still *reports* the break (`provisioned.definitional_breaks`, `break_count`) and the full-span naive read (`full_span_collapse`) — transparency, not deletion — but the answer it hands to consumers (`collapse`) only fires when κ genuinely rose *within* one definition.
+- A single-sample current epoch **abstains** (`collapse: None`) rather than claiming anything.
+
+**Live result (2026-09-13):** `collapse: false` (was `true`), `full_span_collapse: true` (the naive read, now explicitly labeled as the fabricated naive), `break_count: 1`, `current_epoch` flat over 5 samples. The joint reader now reports `kappa: stable` and joint verdict **`compress-coherent`** (was `compress-paradox`) — the `--check` watchdog goes silent, which is correct: there was never a ketosis, only a definitional break the measure hadn't learned to see. This is the `ε_code/ε_system` boundary again, applied to the κ trend itself: the reader had a compressible ε_code (it didn't know its own κ-definition could drift), and the fix landed on the compressible side. Selftest grew 8→10 cases (break detection, break index, full-span-vs-epoch split, single-sample-epoch abstain).
+
+---
+
 ## v0.8.23 — 2026-09-13 — crate identity drift watchdog: the v0.8.15 fix recurred, now instrumented
 
 `Cargo.toml` (and `Cargo.lock`) sat at `version = "0.8.14"` while `CHANGELOG.md` had advanced to `v0.8.22` — the crate identity drifted **eight releases behind again**, the exact disease the v0.8.15 entry fixed *by hand* (0.7.0 → 0.8.14) with no instrument behind it. A one-time manual alignment cannot prevent recurrence: the release step bumps the CHANGELOG head but not `Cargo.toml`, and nothing asserts the pair stay equal — the drift is semantically valid and structurally invisible (the `Structural/Behavioral Split` enforcement gap, applied to the crate's *own* identity).

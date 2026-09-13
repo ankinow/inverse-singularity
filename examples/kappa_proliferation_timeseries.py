@@ -288,6 +288,51 @@ def show(db_path=None):
               f"{r[6]:>8.5f} {r[7]:>8.5f} {ts_on:>9} {mcp_on:>10}")
 
 
+def _kappa_def_fingerprint(r):
+    """
+    Fingerprint of the κ-definition a sample was measured under.
+
+    The κ terms grew over time (skills → +plugins → +toolsets → +MCP), so two
+    samples can disagree on `kappa_raw`/`kappa_eff` for *definitional* reasons
+    (the metric got a new term) rather than *proliferation* (the runtime truly
+    accumulated capability). Those are different diseases with the same
+    symptom (κ rising), and the trend reader must not conflate them.
+
+    A sample measured before toolsets/MCP entered κ has NULL in those columns
+    (the ALTER TABLE migration left pre-term rows NULL). A NULL toolsets field
+    therefore marks the *old* definition; a non-NULL marks the *new*. This is
+    a structural signal already in the data — no new column needed.
+    """
+    if isinstance(r, tuple):
+        # tuple layout: (seq, ts, d_active, archived, kappa_raw, kappa_eff,
+        #                Q_raw, Q_eff, ts_en, ts_dis, mcp_en, mcp_dis)
+        ts_en = r[8]
+    else:
+        ts_en = r.get("toolsets_enabled")
+    return "with-toolsets-mcp" if ts_en is not None else "pre-toolsets-mcp"
+
+
+def _definitional_breaks(rows):
+    """
+    Detect κ-definition breaks between adjacent samples (ordered by seq).
+
+    Returns a list of 1-based sample indices (in the given `rows` order) that
+    START a new definitional epoch — i.e. index i (1-based) is a break when
+    rows[i] has a different κ-definition than rows[i-1]. The first row always
+    starts epoch 1 (index 1).
+    """
+    if not rows:
+        return []
+    breaks = [1]
+    prev = _kappa_def_fingerprint(rows[0])
+    for i in range(1, len(rows)):
+        cur = _kappa_def_fingerprint(rows[i])
+        if cur != prev:
+            breaks.append(i + 1)
+            prev = cur
+    return breaks
+
+
 def compute_trend(rows, metric="Q_eff", window=None):
     """
     Read-only dQ/dt computation over the series.
@@ -298,10 +343,20 @@ def compute_trend(rows, metric="Q_eff", window=None):
         window: optional int — only the last N samples are considered.
 
     Returns a dict {n, first_q, last_q, dq, slope_sign, monotone_drops,
-    collapse} where `collapse` is True iff the LAST sample is strictly below
-    BOTH the first sample AND the running maximum (a genuine dQ/dt<0 turn),
-    per the thread's "collapse pattern predicted at scale". Read-only: this
-    never mutates and never gates anything.
+    collapse, provisioned, current_epoch} where `collapse` is True iff the
+    LAST sample is strictly below BOTH the first sample AND the running
+    maximum (a genuine dQ/dt<0 turn), per the thread's "collapse pattern
+    predicted at scale".
+
+    The collapse verdict is computed ONLY over the *current definitional
+    epoch* (the contiguous suffix of samples sharing the latest κ-definition).
+    A κ-definition break (new term added to the metric) makes earlier samples
+    incommensurable — their κ is smaller by construction, so comparing across
+    the break fabricates a collapse that is really a redefinition, not
+    proliferation. The reader still *reports* the breaks (`provisioned`) and
+    the full-span naive read (`full_span`), but the headline `collapse` answer
+    is epoch-local: it only fires when κ genuinely rose *within* one
+    definition. Read-only: this never mutates and never gates anything.
     """
     if isinstance(metric, str):
         if metric == "Q_eff":
@@ -337,13 +392,50 @@ def compute_trend(rows, metric="Q_eff", window=None):
         else:
             running_max = v
 
-    # collapse = last sample strictly below both first and the running max
-    collapse = (last_q < first_q) and (last_q < running_max)
+    # Full-span naive collapse over the WHOLE series (the pre-fix answer, kept
+    # as `full_span` so consumers can see the fabricated-vs-real distinction).
+    full_span_collapse = (last_q < first_q) and (last_q < running_max)
+
+    # Epoch-local collapse: only compare within the current κ-definition.
+    breaks = _definitional_breaks(rows)
+    current_epoch_start = breaks[-1] - 1  # 0-based index of the epoch start
+    epoch_rows = rows[current_epoch_start:]
+    epoch_vals = [col(r) for r in epoch_rows]
+
+    if len(epoch_vals) < 2:
+        # Single-sample epoch: no within-definition history yet → abstain.
+        collapse = None
+        current_epoch = {
+            "start_index": current_epoch_start + 1,
+            "n_samples": len(epoch_vals),
+            "first_q": epoch_vals[0],
+            "last_q": epoch_vals[0],
+            "collapse": None,
+        }
+    else:
+        e_first = epoch_vals[0]
+        e_last = epoch_vals[-1]
+        e_max = e_first
+        for v in epoch_vals[1:]:
+            if v > e_max:
+                e_max = v
+        collapse = (e_last < e_first) and (e_last < e_max)
+        current_epoch = {
+            "start_index": current_epoch_start + 1,
+            "n_samples": len(epoch_vals),
+            "first_q": e_first,
+            "last_q": e_last,
+            "collapse": collapse,
+        }
 
     return {"n": len(vals), "metric": (metric if isinstance(metric, str) else "custom"),
             "first_q": first_q, "last_q": last_q, "dq": round(dq, 6),
             "slope_sign": slope_sign, "monotone_drops": monotone_drops,
-            "collapse": collapse}
+            "collapse": collapse,
+            "provisioned": {"definitional_breaks": breaks,
+                            "break_count": max(len(breaks) - 1, 0)},
+            "current_epoch": current_epoch,
+            "full_span_collapse": full_span_collapse}
 
 
 def trend(db_path=None):
@@ -439,8 +531,35 @@ def _selftest():
     tr4 = compute_trend(seq_rows, metric="Q_eff", window=2)
     check("window clamps n", tr4["n"] == 2)
 
+    # 9. definitional break: a NULL-kappa sample followed by a with-toolsets
+    #    sample is a break; the epoch-local collapse must NOT fire across it.
+    #    Naive full-span would say "collapse" (Q 0.015 → 0.010), but that is a
+    #    redefinition, not proliferation — the headline collapse abstains/false.
+    break_rows = [
+        (1, "t1", 0, 0, 380, 380, 0.01018, 0.01546, None, None, None, None),
+        (2, "t2", 0, 0, 380, 380, 0.01018, 0.01546, None, None, None, None),
+        (3, "t3", 0, 0, 408, 408, 0.00955, 0.01440, 24, 9, 4, 1),
+        (4, "t4", 0, 0, 408, 408, 0.00955, 0.01440, 24, 9, 4, 1),
+    ]
+    trb = compute_trend(break_rows, metric="Q_eff")
+    check("break detected", trb["provisioned"]["break_count"] == 1)
+    check("break at index 3", trb["provisioned"]["definitional_breaks"] == [1, 3])
+    check("full-span would collapse", trb["full_span_collapse"] is True)
+    # epoch-local over the with-toolsets suffix (samples 3-4) is FLAT:
+    check("epoch collapse is False (flat post-break)", trb["collapse"] is False)
+    check("epoch n_samples 2", trb["current_epoch"]["n_samples"] == 2)
+
+    # 10. single-sample current epoch abstains (collapse is None).
+    single_epoch_rows = [
+        (1, "t1", 0, 0, 380, 380, 0.01018, 0.01546, None, None, None, None),
+        (2, "t2", 0, 0, 408, 408, 0.00955, 0.01440, 24, 9, 4, 1),
+    ]
+    trs = compute_trend(single_epoch_rows, metric="Q_eff")
+    check("single-sample epoch abstains", trs["collapse"] is None)
+    check("break detected single", trs["provisioned"]["break_count"] == 1)
+
     print(json.dumps({"schema": "kappa-trend-selftest",
-                      "passed": 8, "ok": True}, ensure_ascii=False))
+                      "passed": 10, "ok": True}, ensure_ascii=False))
     return 0
 
 
