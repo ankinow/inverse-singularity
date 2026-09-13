@@ -1,6 +1,6 @@
 [package]
 name = "ist_engine"
-version = "0.8.29"
+version = "0.8.30"
 edition = "2021"
 rust-version = "1.74"
 description = "IST — Imposition-Guided Selection Engine. The runtime expression of Inverse Singularity Theory, in Rust."

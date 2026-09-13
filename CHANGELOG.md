@@ -6,6 +6,14 @@
 
 ---
 
+## v0.8.30 — 2026-09-13 — fingerprint parity check: Rust primary ⇄ Python mirror are now surfaced, not trusted
+
+The `framework/ist_engine.py` module docstring has always said the Python mirror and the Rust primary "MUST produce identical scalar outputs" — the Q=1.9845 fingerprint — and the Rust test suite asserts the canonical value (`sourced_mirrored_decreases_q_versus_chosen`, `portfolio_all_chosen_matches_canonical_q`). But the parity was held by *discipline*, not by *surfacing*: nothing ran both implementations and diffed their output, so a silent fork between Rust and Python would pass `cargo test` (which tests Rust against itself) and a naive Python smoke run (which tests the mirror against nothing). The recent type-level additions (`phi_sourced`/`route` v0.8.25, `constraint_margin` v0.8.26, `constraint_portfolio` v0.8.27) widened that un-surfaced surface.
+
+`examples/fingerprint_parity_check.py` (stdlib, zero-dep, read-only) closes the gap by the same fail-closed deterministic discipline as `crate_identity_check` and the a5 `--check`: it computes the canonical shared surface from the **Python mirror** alone (`phi`, the 7-step collapse NEI scores + urgencies, the audit score + `min_margin`, and the 15 source-term invariants the Rust tests pin), runs `cargo run --example collapse` and parses the Rust demo's printed scalars, and asserts agreement within the shared 1e-4 floor — exit 1 with a `DRIFT` line naming the axis on any disagreement, exit 2 if either side cannot be obtained. Read-only: it never edits either implementation.
+
+**First live read (2026-09-13): PARITY — 34 axes agree** (Q=1.98447, 7 NEI steps, audit score/min_margin, 15 source-term invariants). The selftest (5/5) proves the assert paths: agreement fires, a synthetic φ-drift is detected, the 15 source-term invariants hold, and the canonical-Q fingerprint is reproduced — with the fail-closed counting path proven (an injected-false check drops the report below total, so `bool((name, False))`-always-true can never mask a regression). The ε_code lesson of the build itself, recorded honestly: the first selftest draft appended `(name, ok)` tuples and summed `bool(b)`, which is always `True` for a non-empty tuple — a fail-open self-check that the fixed `sum(1 for _n, ok in res if ok)` now closes. cargo test 40/40, py_compile clean.
+
 ## v0.8.29 — 2026-09-13 — a7 ε-boundary probe: the ε_code ↔ ε_system boundary is itself measured
 
 The ε-thread ("ε as the Sovereignty Term") asks two falsifiable questions. The a6 probe (v0.8.11) answered the first — decompose the runtime's remainder into ε_code (compressible) vs ε_system (chosen). The second — *"is the boundary between ε_code and ε_system itself an ε?"* (line 58; the a6 docstring even lists it as question #2) — was answered only in **prose**: "the boundary is sharp and sits inside ε_code." No instrument ever *measured* the boundary.
