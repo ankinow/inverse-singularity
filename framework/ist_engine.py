@@ -23,6 +23,18 @@ psi = lambda x, c: x / (1 + c * x)           # ψ: Constraint function
 phi = lambda d: math.log(1 + d)              # φ: Density enhancement
 nabla = lambda t: 1 / (t + 1e-9)             # ∇: Focus gradient (ε differs from Rust)
 
+def constraint_margin(limit, current):
+    """Signed κ-headroom: (limit - current) / limit.
+
+    The gradient side of `constraint_audit` (matching `constraint_margin`
+    in the Rust primary): the booleans say *whether* a limit is tripped,
+    the margin says *how close*. Zero-limit axes (A1 deps) carry a linear
+    penalty `-current` instead of a ratio (wall at 0 divides the domain).
+    """
+    if limit == 0.0:
+        return -current
+    return (limit - current) / limit
+
 class IST:
     Q_ZERO_DEPS = "Can I do this with zero external deps?"
     Q_HALF_MEM = "Can I achieve the result with 50% less memory?"
@@ -62,9 +74,18 @@ class IST:
         ok_t = tool_count <= max_tools
         ok_d = dep_count <= max_deps
         ok_m = memory_bytes <= max_mem_mb * 1024 * 1024
+        # Continuous κ-margin per numeric axis (gradient the boolean gate
+        # cannot carry — the 2026-06-14 thread proposal). Sovereignty stays
+        # binary (constitutive). min_margin = tightest axis.
+        tool_margin = constraint_margin(float(max_tools), float(tool_count))
+        dep_margin = constraint_margin(float(max_deps), float(dep_count))
+        mem_margin = constraint_margin(max_mem_mb * 1024.0 * 1024.0, float(memory_bytes))
+        min_margin = min(tool_margin, dep_margin, mem_margin)
         return {"tool_compliance": ok_t, "dep_compliance": ok_d,
                 "memory_compliance": ok_m, "purpose_aligned": self.sovereign_mode,
-                "score": sum([ok_t, ok_d, ok_m, self.sovereign_mode]) / 4.0}
+                "score": sum([ok_t, ok_d, ok_m, self.sovereign_mode]) / 4.0,
+                "tool_margin": tool_margin, "dep_margin": dep_margin,
+                "memory_margin": mem_margin, "min_margin": min_margin}
 
     def audit(self):
         a1, a2, a3, a4 = self.lam >= 0.0, True, self.tau >= 1, self.sovereign_mode

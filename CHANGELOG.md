@@ -6,6 +6,24 @@
 
 ---
 
+## v0.8.26 — 2026-09-13 — κ-margin gradient: constraint_audit gains continuous headroom (the 2026-06-14 thread's "dκ/dt" signal)
+
+The κ-Proliferation thread (CURIOSITY.md) named a structural gap back on 2026-06-14 and it sat open for ~3 months:
+
+> *"the `constraint_audit` function is a step function (boolean per axis). It registers compliance/non-compliance but offers no gradient: no margin, no drift, no dκ/dt … you can't see κ accumulating until you trip the hard limit."*
+
+The boolean gate says *whether* a limit is tripped; it cannot say *how close* the system is to tripping it — so κ-drift stays invisible right up to the moment compliance flips. This release closes that gap with a continuous margin on every numeric axis.
+
+- **`constraint_margin(limit, current) -> f64`** — signed κ-headroom: `(limit - current) / limit`. `1.0` = nothing consumed, `0.0` = sitting on the wall, negative = overshoot. The zero-limit axis (`MAX_DEPS = 0`, A1) has no ratio (a wall at zero divides the domain), so it carries a linear penalty `-current` instead.
+- **`Audit`** gains `tool_margin`, `dep_margin`, `memory_margin`, and **`min_margin`** — the tightest of the three, the single number a consumer watches to see κ-drift *before* `score` drops. Sovereignty stays binary (constitutive — a boolean margin would mean nothing, per the Structural/Behavioral Split).
+- **`constraint_audit`** computes the three numeric margins inline and returns them; the `score` (mean of four booleans) is untouched.
+
+Four canonical tests pin it: `margin_is_full_headroom_at_limit`, `margin_goes_negative_past_the_wall` (proves overshoot magnitude per axis, min = deps −5.0), `margin_surfaces_drift_before_score_drops` (a still-compliant config's tightest axis has already eroded to the wall — the thread's exact "see κ accumulating before you trip the limit"), and `constraint_margin_zero_limit_is_linear_penalty`.
+
+The Python reference (`framework/ist_engine.py`) mirrors the same margin fields in its `constraint_audit` return dict, so the Rust/Python pair stay fingerprint-aligned (Q = 1.9845 unchanged — the margins are additive fields, no equation touched). `examples/audit.rs` and `examples/collapse.rs` print the new margins.
+
+The Goodhart safeguard is structural: the margin is *reported*, never acted on — no consumer gates on it, no config is trimmed because of it. It is the dκ/dt signal the thread asked for, made continuous and visible, with the prescription still left to the operator.
+
 ## v0.8.25 — 2026-09-13 — φ(d, s) source term lands: the Boundary Paradox density term is now in the type, not just the prose
 
 The **Boundary Paradox** thread (CURIOSITY.md, first raised 2026-06-10) proposed a density *source term* as its candidate structural signature for the chosen/mirrored distinction:

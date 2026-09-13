@@ -38,12 +38,13 @@ fn main() {
     let audit = agent.constraint_audit(2, 0, 1024);
     println!("─────────────────────────────────────────────────────────────");
     println!(
-        "Audit: tool={}  dep={}  mem={}  purpose={}  score={:.3}",
+        "Audit: tool={}  dep={}  mem={}  purpose={}  score={:.3}  min_margin={:.3}",
         audit.tool_compliance,
         audit.dep_compliance,
         audit.memory_compliance,
         audit.purpose_aligned,
-        audit.score
+        audit.score,
+        audit.min_margin
     );
 
     let self_audit = agent.audit();

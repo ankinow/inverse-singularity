@@ -131,6 +131,36 @@ pub fn route(d: f64, s: ConstraintSource) -> (f64, f64) {
     }
 }
 
+/// Signed κ-headroom for a single numeric hard limit.
+///
+/// `(limit - current) / limit` — the fraction of the wall still available
+/// before the constraint trips. `1.0` = nothing consumed (full headroom),
+/// `0.0` = sitting exactly on the wall, negative = already past it (each
+/// unit below zero is one limit-unit of overshoot in relative terms).
+///
+/// This is the *gradient* side of the constraint audit. The Step-function
+/// `constraint_audit` booleans say *whether* a limit is tripped; the margin
+/// says *how close* the system is to tripping it — so κ-drift is visible
+/// as a falling margin *before* it crosses into non-compliance, not only
+/// after. See CURIOSITY.md, "κ Proliferation" thread (2026-06-14 dispatch):
+/// the boolean gate offers no dκ/dt; the margin is the continuous signal.
+///
+/// The zero-limit axis (A1 deps) has no ratio — a wall at exactly zero
+/// divides the domain, so its margin is a linear penalty (`-current`), not
+/// a fraction.
+#[inline]
+#[must_use]
+pub fn constraint_margin(limit: f64, current: f64) -> f64 {
+    if limit == 0.0 {
+        // Degenerate zero-limit axis (e.g. A1 `MAX_DEPS = 0`): headroom is
+        // binary — you are either at zero (margin 0, on the wall) or past it
+        // (negative, one unit per violation). A ratio would divide by zero.
+        -current
+    } else {
+        (limit - current) / limit
+    }
+}
+
 /// ∇ (nabla) — Focus gradient.
 ///
 /// `∇(t) = 1 / (t + ε)`
@@ -263,7 +293,9 @@ impl IST {
     }
 
     /// Audit an external system against the four IST hard limits.
-    /// Returns an `Audit` record with per-axis compliance + a score.
+    /// Returns an `Audit` record with per-axis compliance + a score, plus
+    /// the continuous κ-margin per numeric axis (the gradient the step
+    /// function alone cannot carry — see [`constraint_margin`]).
     pub fn constraint_audit(&self, tool_count: u32, dep_count: u32, memory_bytes: u64) -> Audit {
         const MAX_TOOLS: u32 = 3;
         const MAX_DEPS: u32 = 0;
@@ -284,12 +316,27 @@ impl IST {
             .sum::<u8>() as f64
             / 4.0;
 
+        // Continuous margin per numeric κ-axis. The three axes carry a
+        // signed headroom; the sovereignty axis is constitutive (binary —
+        // a boolean margin would mean nothing, per the Structural/Behavioral
+        // Split). `min_margin` is the tightest axis (the one about to trip or
+        // already tripped), which is the single number a consumer watches to
+        // see κ-drift *before* `score` drops.
+        let tool_margin = constraint_margin(MAX_TOOLS as f64, tool_count as f64);
+        let dep_margin = constraint_margin(MAX_DEPS as f64, dep_count as f64);
+        let memory_margin = constraint_margin(max_mem_bytes as f64, memory_bytes as f64);
+        let min_margin = tool_margin.min(dep_margin).min(memory_margin);
+
         Audit {
             tool_compliance: ok_t,
             dep_compliance: ok_d,
             memory_compliance: ok_m,
             purpose_aligned: ok_s,
             score,
+            tool_margin,
+            dep_margin,
+            memory_margin,
+            min_margin,
         }
     }
 
@@ -368,6 +415,17 @@ pub struct Audit {
     pub purpose_aligned: bool,
     /// `mean(compliance booleans)` ∈ [0, 1]
     pub score: f64,
+    /// Signed κ-headroom on the tool axis: `(3 - tool_count) / 3`.
+    pub tool_margin: f64,
+    /// Signed κ-headroom on the dep axis: `-dep_count` (zero-limit axis —
+    /// see [`constraint_margin`]).
+    pub dep_margin: f64,
+    /// Signed κ-headroom on the memory axis: `(50 MiB - bytes) / 50 MiB`.
+    pub memory_margin: f64,
+    /// Tightest of the three numeric margins — the axis closest to tripping
+    /// (or furthest past the wall). The single continuous signal a consumer
+    /// watches to see κ-drift before `score` flips.
+    pub min_margin: f64,
 }
 
 /// Result of `IST::audit` — the four-axiom self-report.
@@ -646,6 +704,70 @@ mod tests {
         let n = IST::new();
         let a = n.audit();
         assert_eq!(a.sovereign_score, 1.0);
+    }
+
+    #[test]
+    fn margin_is_full_headroom_at_limit() {
+        // At the limit (not over), each ratio axis has zero headroom; the
+        // zero-limit dep axis sits exactly on the wall (margin 0).
+        let n = IST::new();
+        let a = n.constraint_audit(3, 0, 50 * 1024 * 1024);
+        assert!(a.tool_compliance && a.dep_compliance && a.memory_compliance);
+        let eps = 1e-12;
+        assert!((a.tool_margin).abs() < eps, "tool margin {}", a.tool_margin);
+        assert!((a.dep_margin).abs() < eps, "dep margin {}", a.dep_margin);
+        assert!(
+            (a.memory_margin).abs() < eps,
+            "mem margin {}",
+            a.memory_margin
+        );
+        assert!((a.min_margin).abs() < eps, "min margin {}", a.min_margin);
+        assert!((a.score - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn margin_goes_negative_past_the_wall() {
+        // Over-limit: margin turns negative, showing overshoot magnitude.
+        let n = IST::new();
+        let a = n.constraint_audit(7, 5, 200 * 1024 * 1024);
+        assert!(!a.tool_compliance && !a.dep_compliance && !a.memory_compliance);
+        // tool: (3-7)/3 = -4/3
+        assert!((a.tool_margin + 4.0 / 3.0).abs() < 1e-12);
+        // dep: -5 (linear penalty on the zero-limit axis)
+        assert!((a.dep_margin + 5.0).abs() < 1e-12);
+        // mem: (50 - 200)/50 = -3.0
+        assert!((a.memory_margin + 3.0).abs() < 1e-12);
+        // tightest = deps (-5.0) — furthest past the wall on the A1 axis
+        assert!((a.min_margin + 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn margin_surfaces_drift_before_score_drops() {
+        // The gradient the thread asked for (2026-06-14): a config can still
+        // be *compliant* (score = 1.0) while its tightest axis has already
+        // eroded toward the wall — the margin flags the drift that the step
+        // function cannot. Here 2 of 3 tools used leaves 1/3 tool headroom,
+        // but the dep axis is already *at* the wall (deps=0 → margin 0), so
+        // min_margin = 0 — the tightest axis.
+        let n = IST::new();
+        let a = n.constraint_audit(2, 0, 1024);
+        assert!((a.score - 1.0).abs() < 1e-9, "still compliant");
+        assert!((a.tool_margin - 1.0 / 3.0).abs() < 1e-12);
+        assert!((a.dep_margin).abs() < 1e-12, "dep at the wall");
+        assert!((a.min_margin).abs() < 1e-12);
+    }
+
+    #[test]
+    fn constraint_margin_zero_limit_is_linear_penalty() {
+        // The A1 zero-deps axis cannot carry a ratio (divide-by-zero); its
+        // margin is the linear penalty -current, and zero at the wall.
+        assert_eq!(constraint_margin(0.0, 0.0), 0.0);
+        assert_eq!(constraint_margin(0.0, 1.0), -1.0);
+        assert_eq!(constraint_margin(0.0, 5.0), -5.0);
+        // Non-zero limits keep the relative form.
+        assert!((constraint_margin(3.0, 1.0) - (2.0 / 3.0)).abs() < 1e-15);
+        assert!((constraint_margin(3.0, 3.0)).abs() < 1e-15);
+        assert!((constraint_margin(50.0, 25.0) - 0.5).abs() < 1e-15);
     }
 
     #[test]

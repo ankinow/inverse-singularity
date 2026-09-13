@@ -46,6 +46,10 @@ fn main() {
     println!("  memory_compliance:  {}", worst.memory_compliance);
     println!("  purpose_aligned:    {}", worst.purpose_aligned);
     println!("  score:              {:.3}", worst.score);
+    println!("  tool_margin:        {:.3}", worst.tool_margin);
+    println!("  dep_margin:         {:.3}", worst.dep_margin);
+    println!("  memory_margin:      {:.3}", worst.memory_margin);
+    println!("  min_margin (tight): {:.3}", worst.min_margin);
 
     println!();
     println!("\"The cage defines what passes.\"");
