@@ -6,6 +6,22 @@
 
 ---
 
+## v0.8.21 — 2026-09-13 — the joint trajectory: Q = φ/κ + ε read whole (read-only synthesis)
+
+The three trend instruments each trend ONE face of the core equation in isolation — `epsilon_code_trend.py` (the compressible UNKNOWN% gap, ε_code), `kappa_proliferation_timeseries.py` (κ_raw/κ_eff and Q=φ/κ), `curiosity_kappa_trend.py` (the runtime's own self-bloat) — and the CURIOSITY synthesis kept returning to *"the same κ-over-φ curve from different angles"* without any instrument looking at the faces at once. The core equation Q = φ/κ + ε ties them: ε_code is the compressible remainder of `+ ε`, κ is the denominator of `φ/κ`, and a healthy runtime compresses ε_code **without** letting κ balloon to swamp the φ it unlocks. Those two compressible terms could trade off invisibly if each is trended alone — ε falling while κ ballooning is a lie dressed as discipline.
+
+`examples/axiom_joint_trend.py` (stdlib, zero-deps, **read-only, no append**) is the synthesis. It imports the three existing readers' **low-level data functions** (single source of truth — `kappa._load_rows`/`compute_trend`, `ckappa._load_rows`/`compute_trend`, `eps.trend`) rather than the print-to-stdout `trend()` wrappers, so it can never re-implement or drift from a measure. `--trend` (`schema axiom-joint-trend/v1`) emits a **`joint_verdict`** over the relative drift of the two compressible terms:
+
+* `compress-coherent` — ε_code improving while κ held (healthy);
+* `compress-paradox` — ε_code improving WHILE κ worsens (the UNKNOWN% fell only because the kit ballooned: a ketosis, not a diet);
+* `kappa-and-eps-collapse` — both compressible terms drifting the wrong way (A2 alarm);
+* `self-bloat` — ε + κ stable while the runtime's own φ/κ worsens;
+* `abstain` — any series below 2 samples (honest, never guesses).
+
+**First live read (2026-09-13):** ε_code `improving` (3.8349%, n=3), κ `worsening` (Q_eff collapse, n=7), self-κ `stable` (n=3) → **`compress-paradox`**. The honest interpretation: the κ `worsening` is the **already-documented definitional break** (the κ-Proliferation thread's own `--trend` carries `collapse:true` because κ gained toolsets+MCP terms on 2026-09-11, rebasing Q lower — not a real collapse). So the paradox flag today is the *known* rebase, not a genuine ε_code/κ trade-off — exactly the caveat the sibling readers already carry forward. The instrument fires correctly; its current trigger is definitional, and the joint read will report `compress-coherent` once the κ series re-accumulates post-rebase samples.
+
+The Goodhart safeguard is identical to its siblings: read-only, no gate, no decision path, no prescriptive consumer. Because it is a **pure reader** (it appends nothing — it reads what the three weekly sampler crons already append), it needs and carries **no cron** of its own. `--selftest` 7/7 (import, the five joint-verdict fire cases, the two sparse-abstain cases, plus a live end-to-end read). py_compile clean across all `examples/*.py`; `cargo test --release` 26/26 green (unaffected — Python-only addition); `curiosity_lint --selftest` 32/32.
+
 ## v0.8.20 — 2026-09-13 — the ε_code residual tracked: UNKNOWN-fraction time-series (append-only)
 
 The ε-as-Sovereignty thread closed its compression at ~3.8% UNKNOWN (the residual dominated by genuinely-ambiguous *driver* blobs — `subprocess.run(a, ...)` with a variable argument, bare `python3 <script>` — which the never-guess discipline correctly refuses to classify). But a point-in-time coverage number makes a silent regression invisible: if a new shell shape leaks through as UNKNOWN (or the classifier is later *over*-extended and starts guessing intent it cannot prove), nothing trends it.
