@@ -38,7 +38,15 @@ The Goodhart safeguard is identical to its siblings: read-only, no append, no de
 path, no prescriptive consumer. It merely makes the *joint* trajectory visible — the
 one thing each single-face trend structurally cannot see.
 
-Exit 0 always (read-only), except `--selftest` which exits non-zero on failure.
+Modes:
+  * `--trend`    (default) — print the full JSON joint read, exit 0 always.
+  * `--check`    — report-only read: **silent** (exit 0) on a healthy joint verdict
+    (`compress-coherent` / `stable` / `abstain`), and prints a compact `ALARM:` line + the
+    JSON and exits 1 on the two alarm verdicts (`kappa-and-eps-collapse`, `compress-paradox`).
+    The exit code is a *reporting* mechanism (so a cron delivery surfaces the alarm),
+    NOT a gate on any action — nothing edits, prunes, or prescribes (the same contract
+    as `a5_constraint_provenance.py --check`).
+  * `--selftest` — prove the fire/abstain logic; exits non-zero on failure.
 """
 
 import json
@@ -54,6 +62,11 @@ import kappa_proliferation_timeseries as kappa  # noqa: E402
 import curiosity_kappa_trend as ckappa  # noqa: E402
 
 SCHEMA = "axiom-joint-trend/v1"
+
+# The joint verdicts that a report-only watchdog should surface. Everything else
+# (`compress-coherent`, `stable`, `abstain`) is a healthy read and stays silent.
+# This is a *reporting* classification, never a gate: nothing acts on it.
+ALARM_VERDICTS = ("kappa-and-eps-collapse", "compress-paradox")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA = REPO_ROOT / "data"
@@ -170,7 +183,14 @@ def _selftest():
     v, d = _resolve_joint("improving", 1, "stable", 1, "stable", 3)
     ok &= v == "abstain" and "epsilon_code" in d["sparse"] and "kappa" in d["sparse"]
 
-    # 3. real-source verdicts: run the actual imported readers against the live DBs and
+    # 3. the ALARM classification (the --check report contract): only the two dangerous
+    #    verdicts are surface-worthy; everything healthy stays silent.
+    ok &= all(v in ALARM_VERDICTS for v in
+              ("kappa-and-eps-collapse", "compress-paradox"))
+    ok &= all(v not in ALARM_VERDICTS for v in
+              ("compress-coherent", "stable", "abstain", "self-bloat"))
+
+    # 4. real-source verdicts: run the actual imported readers against the live DBs and
     #    confirm a joint verdict is produced (never asserting a particular value, since
     #    the live shape may legitimately be anything — the point is it runs end-to-end).
     try:
@@ -197,7 +217,19 @@ def main():
         print("SELFTEST:", "PASS" if ok else "FAIL")
         sys.exit(0 if ok else 1)
 
-    print(json.dumps(trend(), indent=2))
+    out = trend()
+    if "--check" in sys.argv:
+        verdict = out["joint_verdict"]
+        if verdict in ALARM_VERDICTS:
+            print("ALARM: %s (ε_code=%s κ=%s self-κ=%s)"
+                  % (verdict, out["verdicts"]["epsilon_code"],
+                     out["verdicts"]["kappa"], out["verdicts"]["curiosity_kappa"]))
+            print(json.dumps(out, indent=2))
+            sys.exit(1)
+        # Healthy (compress-coherent / stable / abstain): silent — nothing to deliver.
+        sys.exit(0)
+
+    print(json.dumps(out, indent=2))
 
 
 if __name__ == "__main__":

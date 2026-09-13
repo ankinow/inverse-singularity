@@ -6,6 +6,16 @@
 
 ---
 
+## v0.8.22 — 2026-09-13 — the joint alarm surfaced: a scheduled report-only consumer (report-only watchdog)
+
+`axiom_joint_trend.py` (v0.8.21) produced the only place the two dangerous cross-face conditions are visible — `kappa-and-eps-collapse` (both compressible terms drifting = A2 alarm) and `compress-paradox` (ε improving WHILE κ balloons = a ketosis, not a diet) — but it was a pure read-only reader with **no scheduled consumer**: its alarm could only ever fire if a human happened to run it, while the three samplers it reads from each append on a weekly cron. The synthesis was wired to nothing.
+
+This release closes that structural gap with the same report-only discipline the A5 drift watchdog (v0.8.10) already established: the instrument gains a **`--check` mode** — silent (exit 0) on a healthy joint verdict (`compress-coherent` / `stable` / `abstain`), and prints a compact `ALARM:` line + the full JSON and exits 1 on the two dangerous verdicts. The exit code is a **reporting** mechanism (so the cron delivery surfaces the alarm), *not* a gate on any action — nothing edits, prunes, or changes config; the Goodhart safeguard (read-only, never-prescriptive) is preserved exactly. Backed by a weekly no-agent cron (`6e3bb938efc3`, Mon 09:47 — *after* the three Mon 09:17 samplers, so it reads the fresh samples) via `~/.hermes/scripts/ist-axiom-joint-watchdog.sh` (POSIX sh, fail-closed rc 2 on instrument error).
+
+**First live read (2026-09-13): `compress-paradox`** (ε_code improving, κ worsening, self-κ stable) — the same verdict the v0.8.21 entry already traced to the κ series' definitional rebase (toolsets+MCP terms added 2026-09-11), *not* a real trade-off. The value of the watchdog is that this alarm now **fires on schedule** instead of waiting for a human to run the reader; once κ re-accumulates post-rebase samples, the court reads `compress-coherent` again. `--selftest` gained the ALARM-classification pin (only the two dangerous verdicts are surface-worthy; every healthy verdict stays silent). Verification: `--selftest` PASS, py_compile clean, cargo test --release 26/26, curiosity_lint 32/32, a5 `--check` DRIFT:none.
+
+---
+
 ## v0.8.21 — 2026-09-13 — the joint trajectory: Q = φ/κ + ε read whole (read-only synthesis)
 
 The three trend instruments each trend ONE face of the core equation in isolation — `epsilon_code_trend.py` (the compressible UNKNOWN% gap, ε_code), `kappa_proliferation_timeseries.py` (κ_raw/κ_eff and Q=φ/κ), `curiosity_kappa_trend.py` (the runtime's own self-bloat) — and the CURIOSITY synthesis kept returning to *"the same κ-over-φ curve from different angles"* without any instrument looking at the faces at once. The core equation Q = φ/κ + ε ties them: ε_code is the compressible remainder of `+ ε`, κ is the denominator of `φ/κ`, and a healthy runtime compresses ε_code **without** letting κ balloon to swamp the φ it unlocks. Those two compressible terms could trade off invisibly if each is trended alone — ε falling while κ ballooning is a lie dressed as discipline.
