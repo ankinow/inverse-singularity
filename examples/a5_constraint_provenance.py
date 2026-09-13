@@ -53,6 +53,7 @@ import os
 import pathlib
 import re
 import sys
+import tempfile
 
 CONFIG = os.environ.get("HERMES_CONFIG", "/mnt/hermes/config.yaml")
 
@@ -139,6 +140,15 @@ def load_yaml_scalar(path: str) -> dict:
 
             if val_part.startswith("- ") or val_part == "-":
                 continue  # list member
+            # A scalar key belongs to the section at its own indent level, NOT
+            # whichever map-section the parser last descended into. Without this
+            # truncation, a nested empty map (`fallback_providers:`) leaks its
+            # path onto every sibling scalar that follows at the parent indent —
+            # `child_timeout_seconds: 3600` (indent 2 under `delegation:`) was
+            # mis-filed as `delegation.fallback_providers.child_timeout_seconds`,
+            # so the anchor lookup never found it (a silent UNVERIFIED drift).
+            while stack and len(stack) > indent // 2:
+                stack.pop()
             path_key = key_part if not stack else ".".join(stack + [key_part])
             out[path_key] = val_part.strip("\"'")
     return out
@@ -270,9 +280,40 @@ def selftest() -> int:
     sc.check(classify("off", doctr) == "CHOSEN", "doctrine anchor 'off' == 'off' must be CHOSEN")
     sc.check(classify("on", doctr) == "MIRRORED", "doctrine anchor drifted off must be MIRRORED")
 
+    # --- parser regression: a nested empty map must NOT leak its path onto
+    # sibling scalars that follow at the parent indent. The live config's
+    # `delegation.fallback_providers:` (empty map) used to re-file every later
+    # scalar (`child_timeout_seconds: 3600`, etc.) under the nested path, so
+    # the anchor lookup silently missed `delegation.child_timeout_seconds`.
+    nested_yaml = (
+        "delegation:\n"
+        "  model: x\n"
+        "  fallback_providers:\n"
+        "    - provider: nvidia\n"
+        "      model: meta/y\n"
+        "  child_timeout_seconds: 3600\n"
+        "  max_iterations: 64\n"
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml",
+                                     delete=False, encoding="utf-8") as tf:
+        tf.write(nested_yaml)
+        nested_path = tf.name
+    try:
+        parsed = load_yaml_scalar(nested_path)
+        sc.check(parsed.get("delegation.child_timeout_seconds") == "3600",
+                 "nested empty map must not leak onto sibling scalar "
+                 "(child_timeout_seconds mis-filed under fallback_providers)")
+        sc.check(parsed.get("delegation.max_iterations") == "64",
+                 "nested empty map must not leak onto sibling scalar (max_iterations)")
+        sc.check("delegation.fallback_providers.child_timeout_seconds" not in parsed,
+                 "nested path must not contain the recovered sibling scalar")
+    finally:
+        os.unlink(nested_path)
+
     print("  selftest[chosen   ] 66→CHOSEN, 60→CHOSEN, 84→MIRRORED (1.27× > 1.25×), 999→MIRRORED, 120→MIRRORED")
     print("  selftest[doctrine ] 'off'→CHOSEN, 'on'→MIRRORED")
     print("  selftest[unverifd ] 'abc'→UNVERIFIED, no-anchor numeric→MIRRORED")
+    print("  selftest[parser   ] nested-map scalar recovery (parent indent)")
     print(f"SELFTEST: {'PASS' if sc.ok else 'FAIL'}")
     for m in sc._fails:
         print(f"  [check fail] {m}")

@@ -6,6 +6,16 @@
 
 ---
 
+## v0.8.28 — 2026-09-13 — a5 parser drift fixed: nested empty map no longer leaks onto sibling scalars
+
+The A5 constraint-provenance classifier — the instrument that exists to *catch* silent config drift (the `agent.max_turns` 66→999 recurrence) — carried a drift in its **own** YAML-subset parser. `load_yaml_scalar` tracked the section stack only on *map-section* lines (empty-value keys), never re-syncing it on *scalar* lines. So a nested empty map leaked its path onto every sibling scalar that followed at the parent indent: the live config's `delegation.fallback_providers:` (an empty map) re-filed `child_timeout_seconds: 3600`, `max_iterations: 64`, etc. under `delegation.fallback_providers.*`, and the anchor lookup for `delegation.child_timeout_seconds` silently missed a knob that was **present and correct** (3600 = the operator-set ceiling). The report read `CHOSEN (4) + UNVERIFIED (1)` when the knob was in fact CHOSEN — a false-negative drift that would have hidden a *future* regression of that same knob.
+
+The fix is the parser's missing half of the indent discipline (the map-section branch already had it): a scalar key belongs to the section at its *own* indent level, so truncate the stack to `indent // 2` before computing the path. The anchor lookup now resolves `delegation.child_timeout_seconds = 3600` → CHOSEN.
+
+Three regression-pinning selftest cases ride along (synthetic nested-map YAML written to a tempfile): the sibling scalar is recovered at the parent path, its companion is too, and the nested path does **not** contain the recovered scalar. Negative control proven (the pre-fix parser reproduces the mis-filing). The self-measurement caveat is now, in a fitting recursion, ε_code-compressed: the instrument that measures whether constraints sit on real negation had a compressible gap in the tool that reads *where the constraints live*.
+
+Scope is Python-only (no Rust change); the crate identity (Cargo.toml == CHANGELOG head) is re-aligned as `0.8.28`. **Result: CHOSEN (5) / UNVERIFIED (0) / DRIFT none.** Selftest 11/11 (was 8/8), cargo test 40/40, clippy clean, py_compile all examples.
+
 ## v0.8.27 — 2026-09-13 — constraint_portfolio: the Boundary Paradox ⊕ κ-Proliferation synthesis lands as an aggregator
 
 The two Active threads kept returning to the same sentence — *"the same κ-over-φ curve from different angles"* — and left it rhetorical. `route(d, s)` (v0.8.25) answers the **per-constraint** question (one constraint's mass splits into density vs κ by source); the κ-thread's instruments (v0.7.7–v0.8.26) measure the **agent's own runtime** κ. Neither answers the Boundary Paradox's *verbatim* question: **is there a threshold where self-imposed constraints become indistinguishable from external ones?** made quantitative — the point where adding one more *mirrored* constraint *decreases* Q while a *chosen* one raises it.
