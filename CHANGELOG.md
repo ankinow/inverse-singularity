@@ -6,6 +6,20 @@
 
 ---
 
+## v0.8.20 — 2026-09-13 — the ε_code residual tracked: UNKNOWN-fraction time-series (append-only)
+
+The ε-as-Sovereignty thread closed its compression at ~3.8% UNKNOWN (the residual dominated by genuinely-ambiguous *driver* blobs — `subprocess.run(a, ...)` with a variable argument, bare `python3 <script>` — which the never-guess discipline correctly refuses to classify). But a point-in-time coverage number makes a silent regression invisible: if a new shell shape leaks through as UNKNOWN (or the classifier is later *over*-extended and starts guessing intent it cannot prove), nothing trends it.
+
+`examples/epsilon_code_trend.py` (stdlib, zero-deps, read-only) closes that gap by the same discipline the κ-Proliferation thread used for dQ/dt (`kappa_proliferation_timeseries.py --trend`, v0.8.9) and the CURIOSITY thread used for self-bloat (`curiosity_kappa_trend.py`, v0.8.14):
+
+* it does **not** re-implement the measurement — it imports `epsilon_code_coverage` (`load_commands` + `action_typing_classifier.classify`) so the trend and the point-in-time report share one source of truth and cannot drift apart;
+* each run appends one row {seq, ts, total, unknown, unknown_frac, mutation, observe, producer_sha} to `data/epsilon_code_trend.sqlite` (append-only, `seq INTEGER PRIMARY KEY AUTOINCREMENT` — the v0.8.9 write-safety shape);
+* `--trend` (`schema epsilon-code-trend/v1`) reads the UNKNOWN-fraction gradient and reports a **`worsening`** verdict only on a genuine monotone rise of unknown_frac past the healthiest (lowest) point; **`improving`** only on a strict fall; `abstain` on <2 samples.
+
+**First live datapoints (2026-09-13):** 3 samples appended (5470/5472/5476 commands), UNKNOWN 3.8391% → 3.8349%, verdict `improving` (δ −0.0042 — noise-level, as expected at a stable floor). The Goodhart safeguard is structural and identical to its siblings: the instrument samples and appends only — no gate, no decision path, no prescriptive consumer. The UNKNOWN% is a *measured* surface of ε_code (compressible by definition); ε_system (the sovereignty residue) is untouched because the classifier only resolves *shape*, never intent it cannot prove.
+
+Backed by a weekly no-agent cron (`fbc620ac003b`, Mon 09:17) via `~/.hermes/scripts/epsilon-code-trend-weekly-sampler.sh` (POSIX sh, silent on success). `--selftest` 6/6 (import, append-does-not-replace with monotonic seq, flat→stable, worsening, improving, abstain<2). py_compile clean.
+
 ## v0.8.19 — 2026-09-12 — the ε_code measure made honest: producer↔vendored sync invariant falsified
 
 The v0.8.16 drift (the ε-probe's own `AMBIGUOUS_TOOLS = {"terminal"}` silently dropping `execute_code`/`browser_exec` for a whole release) named a failure mode no instrument guarded against: **the measured classifier and the production producer are two files, and nothing asserted they stayed byte-identical.** `examples/epsilon_code_coverage.py` — the instrument that reports the UNKNOWN% (ε_code's compressible surface) — imported the vendored classifier but never checked it against the live `session-scribe/action_typing.py` that actually types the diary. A future silent fork would make the coverage number a measurement *against a classifier the production diary never used* — a lie dressed as evidence.
