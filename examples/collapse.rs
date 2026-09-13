@@ -1,6 +1,6 @@
 //! `cargo run --example collapse` — the canonical 7-day collapse demo.
 //!
-//! Mirrors `python3 framework/nei_engine.py` exactly, byte-for-symbol.
+//! Mirrors `python3 framework/ist_engine.py` exactly, byte-for-symbol.
 //! This is the *fingerprint check*: the Rust output must equal the
 //! Python output. If it doesn't, one of the two is wrong.
 

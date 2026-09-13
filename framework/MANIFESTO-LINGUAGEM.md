@@ -1,6 +1,6 @@
 # MANIFESTO da LINGUAGEM — *A Note on the Choice of Rust*
 
-> *This document is the philosophical companion to `framework/nei_engine.py`
+> *This document is the philosophical companion to `framework/ist_engine.py`
 > and `src/lib.rs`. It exists to make one thing unambiguous:*
 >
 > **There is no default language. There never will be.**
@@ -83,4 +83,4 @@ The axioms do not move.
 ---
 
 *`framework/MANIFESTO-LINGUAGEM.md` · v1 · 2026-06-04 · MIT*
-*Companion to `src/lib.rs` (Rust primary) and `framework/nei_engine.py` (Python reference).*
+*Companion to `src/lib.rs` (Rust primary) and `framework/ist_engine.py` (Python reference).*

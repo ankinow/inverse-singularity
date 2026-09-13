@@ -87,7 +87,7 @@ A system with zero external dependencies, bounded memory (50MB), and a 7-day col
 | Edition | Path | Role | Lines |
 |---------|------|------|-------|
 | Rust (primary) | `src/lib.rs` | Operational expression at type + runtime layer | ~280 |
-| Python (reference) | `framework/nei_engine.py` | Didactic expression, fingerprint for Rust port | ~47 |
+| Python (reference) | `framework/ist_engine.py` | Didactic expression, fingerprint for Rust port | ~72 |
 
 Both produce identical scalar outputs ($\psi$, $\phi$, $\nabla$, $Q$) to within floating-point determinism. Neither is "the truth." The axioms are the truth; both files are the fingerprints.
 

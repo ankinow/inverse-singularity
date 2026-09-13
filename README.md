@@ -111,7 +111,7 @@ The runtime is the load-bearing artifact of the framework. Two implementations o
 | Edition | Path | Role | Lines |
 |:--------|:-----|:-----|------:|
 | **Rust (primary)**  | `src/lib.rs` | Operational expression at the type and runtime layer. | ~350 |
-| **Python (reference)** | `framework/nei_engine.py` | Didactic fingerprint. Must match Rust output to 5 decimal places. | 69 |
+| **Python (reference)** | `framework/ist_engine.py` | Didactic fingerprint. Must match Rust output to 5 decimal places. | 72 |
 
 Both produce identical scalar outputs (ψ, φ, ∇, Q). Neither is "the truth." The axioms are the truth; both files are the proofs.
 
@@ -139,7 +139,7 @@ print(f'Q={steps[0][\"quality\"]:.4f}  IST={steps[0][\"ist_score\"]:.5f}')
 
 ### Rust↔Python Output Identity
 
-All 7 collapse steps match between Rust and Python to 5 decimal places (verified 2026-06-10). The tiny divergence (~10⁻¹¹) comes only from the nabla epsilon difference (Rust `f64::EPSILON` ≈ 2.22e-16, Python `1e-9` — documented in `framework/nei_engine.py`).
+All 7 collapse steps match between Rust and Python to 5 decimal places (verified 2026-06-10). The tiny divergence (~10⁻¹¹) comes only from the nabla epsilon difference (Rust `f64::EPSILON` ≈ 2.22e-16, Python `1e-9` — documented in `framework/ist_engine.py`).
 
 *No `unsafe` in Rust. No numpy in Python. No requests. No exceptions.*
 The engine is small because **the axioms are small**. Bloat would be a confession that the theory isn't load-bearing.
@@ -181,7 +181,7 @@ inverse-singularity/
 │   └── ist_distill_paper.md      ── 1-page distill paper (3 equations)
 │
 ├── framework/                    ── IST Core runtime (Python reference layer)
-│   ├── nei_engine.py             ── Python reference (69 lines, 0 deps, MIT)
+│   ├── ist_engine.py             ── Python reference (72 lines, 0 deps, MIT)
 │   ├── MANIFESTO-LINGUAGEM.md    ── Why Rust, why not "Rust by default"
 │   └── collapse_mode.md          ── 7-day sprint methodology
 │

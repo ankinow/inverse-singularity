@@ -102,10 +102,9 @@ cargo run --example collapse
 
 # Python (reference)
 python3 -c "
-exec(open('framework/nei_engine.py').read())
-ist = IST(lam=0.1, tau=7, sovereign_mode=True)
-state = {'complexity': 0.31, 'density': 0.85}
-for r in nei.collapse(state, 7):
+exec(open('framework/ist_engine.py').read())
+ist = IST.tuned(0.1, 7)
+for r in ist.collapse(0.31, 0.85, 7):
     print(f't={r[\"t\"]} Q={r[\"quality\"]:.4f} IST={r[\"nei_score\"]:.5f} urgency={r[\"urgency\"]:.4f}')
 "
 ```
@@ -113,13 +112,13 @@ for r in nei.collapse(state, 7):
 Output for the reference parameters ($c = 0.31$, $d = 0.85$, $\lambda = 0.1$, $\tau = 7$):
 
 ```
-t=1  Q=2.7419  IST=0.03083  urgency=0.8571
-t=2  Q=2.7419  IST=0.03699  urgency=0.7143
-t=3  Q=2.7419  IST=0.04624  urgency=0.5714
-t=4  Q=2.7419  IST=0.06166  urgency=0.4286
-t=5  Q=2.7419  IST=0.09249  urgency=0.2857
-t=6  Q=2.7419  IST=0.18497  urgency=0.1429
-t=0  Q=2.7419  IST=0.02642  urgency=1.0000   ← cycle reset
+t=1  Q=1.9845  IST=0.03083  urgency=0.8571
+t=2  Q=1.9845  IST=0.03699  urgency=0.7143
+t=3  Q=1.9845  IST=0.04624  urgency=0.5714
+t=4  Q=1.9845  IST=0.06166  urgency=0.4286
+t=5  Q=1.9845  IST=0.09249  urgency=0.2857
+t=6  Q=1.9845  IST=0.18497  urgency=0.1429
+t=0  Q=1.9845  IST=0.02642  urgency=1.0000   ← cycle reset
 ```
 
 Note: $Q$ is constant because the demo uses fixed $(c, d)$. In real use, $d$ should rise and $c$ should fall across the cycle. The demo shows the gradient mechanism, not the learning curve.
