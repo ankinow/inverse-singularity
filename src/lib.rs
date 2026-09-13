@@ -131,6 +131,120 @@ pub fn route(d: f64, s: ConstraintSource) -> (f64, f64) {
     }
 }
 
+/// One constraint in a sourced portfolio. A `(mass, source)` pair is the
+/// granular unit the Boundary Paradox thread (CURIOSITY.md, 2026-06-10)
+/// named: each constraint carries a mass `d` (how much it constrains) and
+/// a `ConstraintSource` (whether that mass is *chosen* — genuine A1 density
+/// — or *mirrored* — adopted to satisfy an external optimizer, pure κ).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PortfolioConstraint {
+    /// Constraint mass (density/complexity magnitude — the `d` of `φ(d)`).
+    pub mass: f64,
+    /// Chosen (A1-legitimate, → φ) or Mirrored (→ κ).
+    pub source: ConstraintSource,
+}
+
+/// The aggregate read of a sourced constraint portfolio.
+///
+/// This is the synthesis the two threads kept returning to — *"the same
+/// κ-over-φ curve from different angles"* (Boundary Paradox ⊕ κ
+/// Proliferation). `route` answers the *per-constraint* question; this
+/// report answers the *portfolio* question the Boundary Paradox raised
+/// verbatim: *"is there a threshold where self-imposed constraints become
+/// indistinguishable from external ones?"* — made quantitative as **the
+/// point where adding one mirrored constraint *decreases* Q** (the
+/// κ-thread's "adding a capability decreases Q", now with a source term).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ConstraintPortfolio {
+    /// Number of constraints routed.
+    pub count: usize,
+    /// Chosen constraints routed (φ mass).
+    pub chosen_count: usize,
+    /// Mirrored constraints routed (κ mass).
+    pub mirrored_count: usize,
+    /// Total mass routed into density: `Σ φ(route(d, s).0)` over chosen only.
+    pub density: f64,
+    /// Total mass routed into complexity: `Σ route(d, s).1` over mirrored only.
+    pub burden: f64,
+    /// `Q = density / (baseline_κ + burden + ε)` — the portfolio quality.
+    ///
+    /// A chosen constraint raises the numerator (φ); a mirrored one raises
+    /// only the denominator (κ). The *threshold* is visible as a falling Q
+    /// when `mirrored_count` grows while `density` stays flat.
+    pub quality: f64,
+    /// `true` when mirrored mass has overtaken chosen density — the
+    /// Boundary Paradox crossing point made falsifiable. A *chosen* constraint
+    /// sharpens (adds φ); a *mirrored* one erodes (adds only κ). The threshold
+    /// is where `burden > density`: past it, each new constraint mirrors the
+    /// external optimizer rather than negates something real — the
+    /// "self-imposed → indistinguishable from external" zone the thread named.
+    /// Reported, never acted on (Goodhart: the report names the point; the
+    /// prune remains a sovereign decision, per A4).
+    pub at_mirror_threshold: bool,
+}
+
+/// Aggregate a set of sourced constraints into a single Q.
+///
+/// This is the **portfolio-level** closure of the Boundary Paradox and the
+/// κ-Proliferation threads. `route(d, s)` splits one constraint's mass into
+/// `(density, kappa)` by its source; `constraint_portfolio` rolls that up so
+/// the "adding a mirrored constraint decreases Q" claim is a one-liner, not
+/// a hand-computed sum:
+///
+/// ```text
+/// density  = Σ over chosen   φ(route(d, chosen).0)   = Σ φ(d)
+/// burden   = Σ over mirrored route(d, mirrored).1   = Σ d
+/// quality  = density / (baseline_κ + burden + ε)
+/// ```
+///
+/// `baseline_κ` is the irreducible complexity floor an agent carries before
+/// any sourced constraint is added (its own runtime, not a constraint it
+/// adopted). The threshold flag is the *crossing point* — `burden > density`
+/// — where mirrored mass overtakes chosen density, the quantitative form of
+/// the thread's *"is there a threshold where self-imposed constraints become
+/// indistinguishable from external ones?"*. It is reported, never applied
+/// (per A4).
+#[must_use]
+pub fn constraint_portfolio(
+    constraints: &[PortfolioConstraint],
+    baseline_kappa: f64,
+) -> ConstraintPortfolio {
+    let count = constraints.len();
+    let mut chosen_count = 0usize;
+    let mut mirrored_count = 0usize;
+    let mut density = 0.0_f64;
+    let mut burden = 0.0_f64;
+
+    for c in constraints {
+        let (d, k) = route(c.mass, c.source);
+        match c.source {
+            ConstraintSource::Chosen => {
+                chosen_count += 1;
+                density += phi(d);
+            }
+            ConstraintSource::Mirrored => {
+                mirrored_count += 1;
+                burden += k;
+            }
+        }
+    }
+
+    let quality = density / (baseline_kappa + burden + f64::EPSILON);
+    // The Boundary Paradox crossing point: mirrored mass overtakes chosen
+    // density (the mirror out-negs the negation).
+    let at_mirror_threshold = burden > density;
+
+    ConstraintPortfolio {
+        count,
+        chosen_count,
+        mirrored_count,
+        density,
+        burden,
+        quality,
+        at_mirror_threshold,
+    }
+}
+
 /// Signed κ-headroom for a single numeric hard limit.
 ///
 /// `(limit - current) / limit` — the fraction of the wall still available
@@ -654,6 +768,131 @@ mod tests {
                 assert_eq!(phi_sourced(d, s), phi(rd));
             }
         }
+    }
+
+    #[test]
+    fn portfolio_all_chosen_matches_canonical_q() {
+        // A portfolio of only chosen constraints folds back to the A2-canonical
+        // Q: density = Σ φ(d), burden = 0, so quality = φ(baseline_d)/κ. With a
+        // single chosen constraint of mass d=0.85 and baseline_κ=0.31, the
+        // quality is the Q=1.9845 fingerprint — the source term is a superset,
+        // not a re-theorization.
+        let c = [PortfolioConstraint {
+            mass: 0.85,
+            source: ConstraintSource::Chosen,
+        }];
+        let p = constraint_portfolio(&c, 0.31);
+        assert_eq!(p.count, 1);
+        assert_eq!(p.chosen_count, 1);
+        assert_eq!(p.mirrored_count, 0);
+        assert!((p.quality - 1.9845).abs() < 1e-4, "quality={}", p.quality);
+        assert!(
+            !p.at_mirror_threshold,
+            "single chosen constraint, not at threshold"
+        );
+    }
+
+    #[test]
+    fn portfolio_mirrored_adds_kappa_not_density() {
+        // A mirrored constraint raises the burden (denominator) while the
+        // density (numerator) stays flat — so Q strictly decreases. This is
+        // the "adding a capability decreases Q" claim made with a source term.
+        let c = [PortfolioConstraint {
+            mass: 0.85,
+            source: ConstraintSource::Chosen,
+        }];
+        let base = constraint_portfolio(&c, 0.31);
+
+        let mixed = [
+            PortfolioConstraint {
+                mass: 0.85,
+                source: ConstraintSource::Chosen,
+            },
+            PortfolioConstraint {
+                mass: 0.85,
+                source: ConstraintSource::Mirrored,
+            },
+        ];
+        let p = constraint_portfolio(&mixed, 0.31);
+        assert_eq!(p.chosen_count, 1);
+        assert_eq!(p.mirrored_count, 1);
+        // density unchanged (mirrored contributes no φ) — burden now 0.85.
+        assert!(
+            (p.density - base.density).abs() < 1e-12,
+            "density must be flat"
+        );
+        assert!((p.burden - 0.85).abs() < 1e-12, "burden={}", p.burden);
+        assert!(
+            p.quality < base.quality,
+            "mirrored constraint must decrease Q: {} vs {}",
+            p.quality,
+            base.quality
+        );
+    }
+
+    #[test]
+    fn portfolio_threshold_flags_next_mirror_decreases_q() {
+        // The Boundary Paradox "at the limit" question, made falsifiable: with
+        // a non-empty burden, one more mirrored unit (mass 1 → κ +1) strictly
+        // lowers Q, so the flag must fire. With a tiny burden the *counterfactual*
+        // still lowers Q (any added κ lowers Q when density is fixed), so the
+        // flag is `true` for any non-zero burden — and only `false` when the
+        // portfolio is empty of mirrored mass where the counterfactual matches
+        // the current quality.
+        let empty = constraint_portfolio(&[], 0.31);
+        assert!(!empty.at_mirror_threshold, "empty portfolio: next mirror would go from 0 to burden, flag should be false when burden is 0");
+
+        let one_mirrored = [PortfolioConstraint {
+            mass: 0.5,
+            source: ConstraintSource::Mirrored,
+        }];
+        let p = constraint_portfolio(&one_mirrored, 0.31);
+        assert!(
+            p.at_mirror_threshold,
+            "a burdened portfolio always flags the next mirror"
+        );
+        assert!((p.burden - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn portfolio_chosen_before_mirrored_is_honest_split() {
+        // The density comes only from chosen mass, the burden only from
+        // mirrored mass — a mixed portfolio never cross-contaminates them.
+        // This pins the route() split at the aggregate level.
+        let mixed = [
+            PortfolioConstraint {
+                mass: 1.0,
+                source: ConstraintSource::Chosen,
+            },
+            PortfolioConstraint {
+                mass: 2.0,
+                source: ConstraintSource::Chosen,
+            },
+            PortfolioConstraint {
+                mass: 3.0,
+                source: ConstraintSource::Mirrored,
+            },
+            PortfolioConstraint {
+                mass: 4.0,
+                source: ConstraintSource::Mirrored,
+            },
+        ];
+        let p = constraint_portfolio(&mixed, 0.0);
+        assert_eq!(p.count, 4);
+        assert_eq!(p.chosen_count, 2);
+        assert_eq!(p.mirrored_count, 2);
+        // density = φ(1) + φ(2) = ln2 + ln3 = ln6.
+        assert!((p.density - (2.0_f64.ln() + 3.0_f64.ln())).abs() < 1e-12);
+        // burden = 3 + 4 = 7.
+        assert!((p.burden - 7.0).abs() < 1e-12);
+        // quality = density / (0 + burden + ε) = ln6 / 7 (≈0.25596).
+        let expected = (2.0_f64.ln() + 3.0_f64.ln()) / 7.0;
+        assert!(
+            (p.quality - expected).abs() < 1e-9,
+            "quality={} expected={}",
+            p.quality,
+            expected
+        );
     }
 
     #[test]

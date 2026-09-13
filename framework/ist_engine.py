@@ -23,6 +23,78 @@ psi = lambda x, c: x / (1 + c * x)           # ψ: Constraint function
 phi = lambda d: math.log(1 + d)              # φ: Density enhancement
 nabla = lambda t: 1 / (t + 1e-9)             # ∇: Focus gradient (ε differs from Rust)
 
+# ────────────────────────────────────────────────────────────────
+# Constraint source term (Boundary Paradox thread, CURIOSITY.md
+# first raised 2026-06-10; landed in the Rust type v0.8.25). A chosen
+# constraint negates something real (genuine φ); a mirrored one adopts
+# the anticipated shape of an external optimizer (pure κ). This is the
+# *fingerprint* mirror — the Rust primary and this file MUST produce
+# identical scalar outputs (see the module docstring).
+# ────────────────────────────────────────────────────────────────
+
+class ConstraintSource:
+    """Chosen (A1-legitimate, → φ) or Mirrored (→ κ)."""
+    CHOSEN = "chosen"
+    MIRRORED = "mirrored"
+
+def phi_sourced(d, s):
+    """`φ(d, s)` — density transform with an explicit source term.
+
+    φ(d, chosen)   = ln(1 + d)   (genuine density, A1)
+    φ(d, mirrored) = 0           (the mass lands in κ, not φ)
+    """
+    if s == ConstraintSource.CHOSEN:
+        return phi(d)
+    return 0.0
+
+def route(d, s):
+    """Split a constraint's mass into (density, kappa) by source.
+
+    route(d, chosen)   = (d, 0)   — all mass is genuine density
+    route(d, mirrored) = (0, d)   — all mass is complexity (burden)
+    """
+    if s == ConstraintSource.CHOSEN:
+        return (d, 0.0)
+    return (0.0, d)
+
+def constraint_portfolio(constraints, baseline_kappa):
+    """Aggregate a set of sourced constraints into a single Q.
+
+    `route` answers the per-constraint question; this answers the
+    *portfolio* question the Boundary Paradox raised verbatim: *"is there
+    a threshold where self-imposed constraints become indistinguishable
+    from external ones?"* — made quantitative as `burden > density`.
+
+    density  = Σ over chosen   φ(route(d, chosen).0)
+    burden   = Σ over mirrored route(d, mirrored).1
+    quality  = density / (baseline_kappa + burden + ε)
+    at_mirror_threshold = burden > density  (the crossing point)
+
+    Each constraint is a `(mass, source)` tuple. Reported read-only;
+    the prune remains a sovereign decision (A4 / Goodhart).
+    """
+    chosen_count = mirrored_count = 0
+    density = burden = 0.0
+    for (mass, source) in constraints:
+        d, k = route(mass, source)
+        if source == ConstraintSource.CHOSEN:
+            chosen_count += 1
+            density += phi(d)
+        else:
+            mirrored_count += 1
+            burden += k
+    quality = density / (baseline_kappa + burden + 1e-9)
+    at_mirror_threshold = burden > density
+    return {
+        "count": len(constraints),
+        "chosen_count": chosen_count,
+        "mirrored_count": mirrored_count,
+        "density": density,
+        "burden": burden,
+        "quality": quality,
+        "at_mirror_threshold": at_mirror_threshold,
+    }
+
 def constraint_margin(limit, current):
     """Signed κ-headroom: (limit - current) / limit.
 

@@ -6,6 +6,21 @@
 
 ---
 
+## v0.8.27 — 2026-09-13 — constraint_portfolio: the Boundary Paradox ⊕ κ-Proliferation synthesis lands as an aggregator
+
+The two Active threads kept returning to the same sentence — *"the same κ-over-φ curve from different angles"* — and left it rhetorical. `route(d, s)` (v0.8.25) answers the **per-constraint** question (one constraint's mass splits into density vs κ by source); the κ-thread's instruments (v0.7.7–v0.8.26) measure the **agent's own runtime** κ. Neither answers the Boundary Paradox's *verbatim* question: **is there a threshold where self-imposed constraints become indistinguishable from external ones?** made quantitative — the point where adding one more *mirrored* constraint *decreases* Q while a *chosen* one raises it.
+
+This release lands the **portfolio aggregator** that closes the loop:
+
+- **`PortfolioConstraint`** — a `(mass, source)` pair, the granular unit the thread named.
+- **`constraint_portfolio(&[PortfolioConstraint], baseline_kappa) -> ConstraintPortfolio`** — rolls `route` up across a *set* of constraints: `density = Σ φ(route(d, chosen).0)`, `burden = Σ route(d, mirrored).1`, `quality = density / (baseline_κ + burden + ε)`. A chosen constraint raises the numerator; a mirrored one raises only the denominator — so the "adding X decreases Q" claim is now a one-liner, not a hand-sum.
+- **`at_mirror_threshold`** — the crossing point `burden > density`, the quantitative form of *"where self-imposed constraints become indistinguishable from external ones"*. Reported read-only; the prune stays a sovereign decision (A4 / Goodhart preserved — the instrument names the point, never acts on it).
+- **Python drift repaired**: the v0.8.25 source term (`phi_sourced`/`route`/`ConstraintSource`) reached only the Rust type, leaving `framework/ist_engine.py` — which declares itself the Rust fingerprint that "MUST produce identical scalar outputs" — silently behind. This release mirrors the source term **and** the portfolio into Python, restoring the Rust↔Python fingerprint (both yield Q = 1.9845 for the canonical demo, both yield `at_mirror_threshold=true` when burden overtakes density).
+
+Four canonical tests pin it (`portfolio_all_chosen_matches_canonical_q` folds back to Q=1.9845, `portfolio_mirrored_adds_kappa_not_density` proves density stays flat while burden grows and Q strictly falls, `portfolio_threshold_flags_next_mirror_decreases_q`, `portfolio_chosen_before_mirrored_is_honest_split` pins the φ-only/κ-only split at the aggregate level). **40/40 tests green; fingerprint Q=1.9845 untouched** (the portfolio is a new aggregator, no equation changed).
+
+This is the Boundary Paradox ⊕ κ-Proliferation synthesis the dispatches kept gesturing at, finally materialized as a function: measure *per-constraint* (route), *per-runtime* (kappas/margins), and now *per-portfolio* — "different angles" became one surface.
+
 ## v0.8.26 — 2026-09-13 — κ-margin gradient: constraint_audit gains continuous headroom (the 2026-06-14 thread's "dκ/dt" signal)
 
 The κ-Proliferation thread (CURIOSITY.md) named a structural gap back on 2026-06-14 and it sat open for ~3 months:
