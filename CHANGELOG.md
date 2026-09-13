@@ -19,6 +19,8 @@ This release fixes the measure at its source (the trend reader, single source of
 
 **Live result (2026-09-13):** `collapse: false` (was `true`), `full_span_collapse: true` (the naive read, now explicitly labeled as the fabricated naive), `break_count: 1`, `current_epoch` flat over 5 samples. The joint reader now reports `kappa: stable` and joint verdict **`compress-coherent`** (was `compress-paradox`) — the `--check` watchdog goes silent, which is correct: there was never a ketosis, only a definitional break the measure hadn't learned to see. This is the `ε_code/ε_system` boundary again, applied to the κ trend itself: the reader had a compressible ε_code (it didn't know its own κ-definition could drift), and the fix landed on the compressible side. Selftest grew 8→10 cases (break detection, break index, full-span-vs-epoch split, single-sample-epoch abstain).
 
+**Crate-identity alignment (2026-09-13, follow-up):** the *instrument* the v0.8.23 entry shipped caught its author's own recurrence immediately. The v0.8.24 release step bumped `CHANGELOG.md` to `v0.8.24` but again left `Cargo.toml`/`Cargo.lock` at `0.8.23` — the exact release-process drift `crate_identity_check.py --check` exists to surface. First live run after the κ-trend commit reported `DRIFT: crate v0.8.23 vs changelog v0.8.24 (gap 1)`, exit 1. Aligned: `Cargo.toml` 0.8.23 → 0.8.24, `Cargo.lock` sync (`cargo update -p ist_engine --precise 0.8.24`). Watchdog now reads `OK` (exit 0), `cargo metadata` → `ist_engine 0.8.24`, cargo test --release 26/26, `cargo build --release` clean.
+
 ---
 
 ## v0.8.23 — 2026-09-13 — crate identity drift watchdog: the v0.8.15 fix recurred, now instrumented
