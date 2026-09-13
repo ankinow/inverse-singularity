@@ -64,6 +64,73 @@ pub fn phi(d: f64) -> f64 {
     (1.0 + d).ln()
 }
 
+/// Constraint source term (Boundary Paradox thread, CURIOSITY.md
+/// first raised 2026-06-10). The thread proposed a density source term
+/// `φ(d, s)` with `s ∈ {chosen, mirrored}`:
+///
+/// > A *chosen* constraint negates something to create novelty (genuine
+/// > A1). A *mirrored* constraint pre-emptively adopts the anticipated
+/// > shape of an external optimizer — it may add to κ (complexity) rather
+/// > than φ (density), actively decreasing Q.
+///
+/// A `Chosen` constraint is A1-legitimate: it negates something real to
+/// create novelty, so its density is genuine φ. A `Mirrored` constraint
+/// exists to satisfy a metric rather than negate reality; its mass lands
+/// in κ (burden), not φ (density).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConstraintSource {
+    /// A1-legitimate: negates something real to create novelty.
+    Chosen,
+    /// A4-mirrored: adopts the anticipated shape of an external optimizer.
+    Mirrored,
+}
+
+/// `φ(d, s)` — density transform with an explicit source term.
+///
+/// ```text
+/// φ(d, chosen)   = ln(1 + d)   (genuine density, A1)
+/// φ(d, mirrored) = 0           (the mass lands in κ, not φ — A4)
+/// ```
+///
+/// The chosen branch is byte-for-byte `phi(d)` — the A2-canonical density
+/// transform that `Step.quality` already uses — so the source term is a
+/// strict, backward-compatible superset of the single-argument `phi`.
+/// The mirrored branch returns zero density: a mirrored constraint adds
+/// *complexity* (κ) rather than *density* (φ), which is the thread's own
+/// "actively decreasing Q" — a larger denominator with an unchanged
+/// numerator.
+#[inline]
+#[must_use]
+pub fn phi_sourced(d: f64, s: ConstraintSource) -> f64 {
+    match s {
+        ConstraintSource::Chosen => phi(d),
+        ConstraintSource::Mirrored => 0.0,
+    }
+}
+
+/// Route a constraint's mass into its density (φ) or complexity (κ)
+/// contribution by source.
+///
+/// Returns `(density, kappa)`:
+/// ```text
+/// route(d, chosen)   = (d, 0)   — all mass is genuine density
+/// route(d, mirrored) = (0, d)   — all mass is complexity (burden)
+/// ```
+///
+/// This makes the source term's Q-effect explicit without mutating the
+/// quality equation: `Q = φ(route_φ) / (κ + route_κ + ε)`. A mirrored
+/// constraint shrinks Q by enlarging κ while φ stays fixed; a chosen one
+/// leaves Q at its A2-canonical value. `phi_sourced` is the pure-density
+/// projection of this routing (`phi_sourced(d, s) == phi(route(d, s).0)`).
+#[inline]
+#[must_use]
+pub fn route(d: f64, s: ConstraintSource) -> (f64, f64) {
+    match s {
+        ConstraintSource::Chosen => (d, 0.0),
+        ConstraintSource::Mirrored => (0.0, d),
+    }
+}
+
 /// ∇ (nabla) — Focus gradient.
 ///
 /// `∇(t) = 1 / (t + ε)`
@@ -467,6 +534,68 @@ mod tests {
         assert!(phi(0.0).abs() < 1e-12);
         assert!(phi(1.0) > 0.0);
         assert!(phi(10.0) > phi(1.0));
+    }
+
+    #[test]
+    fn sourced_chosen_matches_canonical_phi() {
+        // The chosen branch is byte-for-byte the A2-canonical density
+        // transform — the source term is a strict superset, not a fork.
+        for d in [0.0, 0.85, 1.0, 10.0] {
+            assert_eq!(phi_sourced(d, ConstraintSource::Chosen), phi(d));
+        }
+    }
+
+    #[test]
+    fn sourced_mirrored_contributes_zero_density() {
+        // A mirrored constraint adds κ, not φ — its density contribution
+        // is zero (the thread's "actively decreasing Q": φ unchanged,
+        // κ enlarged).
+        for d in [0.0, 0.85, 1.0, 10.0] {
+            assert!(phi_sourced(d, ConstraintSource::Mirrored).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn route_chosen_is_all_density_no_kappa() {
+        // A chosen constraint's mass is genuine density, zero burden.
+        assert_eq!(route(0.85, ConstraintSource::Chosen), (0.85, 0.0));
+        assert_eq!(route(3.0, ConstraintSource::Chosen), (3.0, 0.0));
+    }
+
+    #[test]
+    fn route_mirrored_is_all_kappa_no_density() {
+        // A mirrored constraint's mass is entirely complexity (κ), with
+        // zero density — it enlarges the Q denominator without touching φ.
+        assert_eq!(route(0.85, ConstraintSource::Mirrored), (0.0, 0.85));
+        assert_eq!(route(3.0, ConstraintSource::Mirrored), (0.0, 3.0));
+    }
+
+    #[test]
+    fn sourced_mirrored_decreases_q_versus_chosen() {
+        // The source term's Q-effect, made explicit: for the same (c, d),
+        // a mirrored constraint shrinks Q (φ→0) while a chosen one leaves
+        // Q at its A2-canonical value φ(d)/κ.
+        let (c, d) = (0.31, 0.85);
+        let q_chosen = phi_sourced(d, ConstraintSource::Chosen) / (c + f64::EPSILON);
+        let q_mirrored = phi_sourced(d, ConstraintSource::Mirrored) / (c + f64::EPSILON);
+        // canonical Q for the demo pair (d=0.85, c=0.31) ≈ 1.9845.
+        assert!((q_chosen - 1.9845).abs() < 1e-4, "q_chosen={q_chosen}");
+        assert!(
+            q_mirrored.abs() < 1e-12,
+            "mirrored Q must be zero, got {q_mirrored}"
+        );
+        assert!(q_chosen > q_mirrored);
+    }
+
+    #[test]
+    fn phi_sourced_is_projection_of_route() {
+        // `phi_sourced(d, s) == phi(route(d, s).0)` for both sources.
+        for d in [0.0, 0.5, 1.0, 7.0] {
+            for s in [ConstraintSource::Chosen, ConstraintSource::Mirrored] {
+                let (rd, _rk) = route(d, s);
+                assert_eq!(phi_sourced(d, s), phi(rd));
+            }
+        }
     }
 
     #[test]

@@ -6,6 +6,28 @@
 
 ---
 
+## v0.8.25 — 2026-09-13 — φ(d, s) source term lands: the Boundary Paradox density term is now in the type, not just the prose
+
+The **Boundary Paradox** thread (CURIOSITY.md, first raised 2026-06-10) proposed a density *source term* as its candidate structural signature for the chosen/mirrored distinction:
+
+> *A chosen constraint negates something to create novelty (genuine A1). A mirrored constraint pre-emptively adopts the anticipated shape of an external optimizer — it may add to κ (complexity) rather than φ (density), actively decreasing Q.*
+
+That proposal stayed in comments and prose: the delegation resolution (v0.7.4, `ChildSpec::consenting`) split chosen/mirrored at the *fan-out* layer, and the v0.8.4/v0.8.10 a5 instrument answered the detection question for *bounded knobs* — but the notation `φ(d, s=chosen)` already used in the delegation doc had **no type-level reality** in the core equation. `phi(d)` was single-argument, so the source term was exactly the "axioms live in comments not types" shape the Structural/Behavioral Split thread keeps surfacing.
+
+This release lands the source term as a **strict, backward-compatible superset** of `phi(d)` — the A2-canonical transform that `Step.quality` already uses is left byte-for-byte untouched, so the Q = 1.9845 fingerprint for the canonical demo (d=0.85, c=0.31) is preserved:
+
+- **`ConstraintSource`** enum — `Chosen` (A1-legitimate: negates something real) vs `Mirrored` (A4-imposed: adopts the anticipated shape of an external optimizer).
+- **`phi_sourced(d, s)`** — `φ(d, chosen) = ln(1 + d)` (genuine density), `φ(d, mirrored) = 0` (the mass lands in κ, not φ).
+- **`route(d, s) -> (density, kappa)`** — the φ-vs-κ router that makes the source term's Q-effect explicit: `route(d, chosen) = (d, 0)`, `route(d, mirrored) = (0, d)`. A mirrored constraint shrinks Q by enlarging κ while φ stays fixed; a chosen one leaves Q at its A2-canonical value.
+
+Six canonical tests pin the doctrine: `sourced_chosen_matches_canonical_phi`, `sourced_mirrored_contributes_zero_density`, `route_chosen_is_all_density_no_kappa`, `route_mirrored_is_all_kappa_no_density`, `sourced_mirrored_decreases_q_versus_chosen` (proves mirrored → Q = 0 against the canonical 1.9845), and `phi_sourced_is_projection_of_route`.
+
+What this does **not** do, per the thread's own A4 caution (line 165: *"the chosen/mirrored distinction may be undecidable from the inside"*): it does **not** auto-classify. The source term provides the *type-level* shape the notation promised; the *decision* of which source a given constraint is — chosen or mirrored — remains a sovereign one, made either by the child declaring consent (gateway `ChildSpec::consenting`) or by the a5 anchor/provenance classifier. The source term is the encoding of *what the distinction means for Q*, not a claim about *which side any particular constraint falls on*.
+
+**Crate identity:** `Cargo.toml` 0.8.24 → 0.8.25, `Cargo.lock` sync. `cargo test --release` 32/32 (26 prior + 6 new), `cargo clippy --release` 0 errors (2 pre-existing literal-bool lints in the audit test, untouched), `cargo fmt --check` clean, canonical collapse example still emits Q=1.984 / IST=0.03083 / audit score 1.000.
+
+---
+
 ## v0.8.24 — 2026-09-13 — κ-trend definitional-break guard: the collapse reader stops fabricating redefinition as collapse
 
 The `kappa_proliferation_timeseries.py --trend` reader reported `collapse: true` (and `monotone_drops: 5`) on the live 7-sample series — and the joint reader translated that into a weekly `compress-paradox` alarm (`axiom_joint_trend.py --check`). Both were **false positives of a single root cause**: the κ metric gained two new terms (toolsets + MCP) on 2026-09-11, so the series silently mixed two *definitions* of κ. Samples 1-2 (κ_raw=577, pre-terms) and samples 3-7 (κ_raw=615, with-terms) are incommensurable — the 577→615 step is a **redefinition**, not proliferation, yet the trend reader compared across it and manufactured a collapse that was never in the runtime.
