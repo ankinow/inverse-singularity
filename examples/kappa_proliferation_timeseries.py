@@ -9,7 +9,10 @@ Design constraint (from the thread itself): Q is READ-ONLY — it flags, never
 acts. This script only samples and appends; it triggers no decisions. The
 Goodhart safeguard is structural: no code path consumes this metric as a gate.
 `--trend` additionally *reads* the dQ/dt gradient the thread left open — it
-reports the slope sign and a collapse verdict, but never acts on it.
+reports the slope sign and a collapse verdict, but never acts on it. `--check`
+is the *scheduled consumer* of that verdict (report-only): silent when healthy,
+`ALARM:` + exit 1 on an epoch-local collapse — it surfaces the movement as a
+cron delivery, never edits or prescribes anything.
 
 Zero dependencies. Stdlib only.
 
@@ -17,6 +20,7 @@ Usage:
     python3 kappa_proliferation_timeseries.py            # sample + append
     python3 kappa_proliferation_timeseries.py --show     # print the series
     python3 kappa_proliferation_timeseries.py --trend    # print dQ/dt gradient
+    python3 kappa_proliferation_timeseries.py --check    # watchdog: ALARM + exit 1 on collapse
     python3 kappa_proliferation_timeseries.py --selftest # deterministic self-check
 """
 
@@ -438,19 +442,53 @@ def compute_trend(rows, metric="Q_eff", window=None):
             "full_span_collapse": full_span_collapse}
 
 
+def _trend_payload(rows):
+    """Single source of the trend read — shared by `--trend` and `--check`."""
+    return {
+        "schema": "kappa-trend/v1",
+        "sample_count": len(rows),
+        "Q_raw": compute_trend(rows, metric="Q_raw"),
+        "Q_eff": compute_trend(rows, metric="Q_eff"),
+    }
+
+
 def trend(db_path=None):
     rows = _load_rows(db_path)
     if not rows:
         print(json.dumps({"error": "no series yet"},
                          ensure_ascii=False, indent=2))
         return 1
-    out = {
-        "schema": "kappa-trend/v1",
-        "sample_count": len(rows),
-        "Q_raw": compute_trend(rows, metric="Q_raw"),
-        "Q_eff": compute_trend(rows, metric="Q_eff"),
-    }
-    print(json.dumps(out, ensure_ascii=False, indent=2))
+    print(json.dumps(_trend_payload(rows), ensure_ascii=False, indent=2))
+    return 0
+
+
+def check_trend(db_path=None):
+    """Report-only watchdog over the dQ/dt series (κ Proliferation thread).
+
+    Silent (exit 0) when healthy: no series yet, fewer than 2 samples, or no
+    epoch-local collapse in either metric. Prints `ALARM:` + the JSON trend and
+    exits 1 when the epoch-local `collapse` verdict is True for Q_raw or Q_eff —
+    the genuine dQ/dt<0 turn past a peak *within one κ-definition* ("the
+    collapse pattern predicted at scale"). Never mutates, never gates: the exit
+    code is a *reporting* mechanism for the cron consumer only (the same
+    contract as `axiom_joint_trend.py --check` and the sibling watchdogs).
+    """
+    try:
+        rows = _load_rows(db_path)
+    except (sqlite3.Error, OSError) as exc:
+        # Fail-closed: an unreadable series is a signal, not a silent pass.
+        print("kappa-check: series unreadable: %s" % exc, file=sys.stderr)
+        return 2
+    if len(rows) < 2:
+        # Honest abstain: fewer than 2 samples cannot contain a trend.
+        return 0
+    out = _trend_payload(rows)
+    collapsing = [name for name in ("Q_eff", "Q_raw")
+                  if out[name].get("collapse") is True]
+    if collapsing:
+        print("ALARM: kappa-collapse (%s)" % ", ".join(collapsing))
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+        return 1
     return 0
 
 
@@ -558,8 +596,60 @@ def _selftest():
     check("single-sample epoch abstains", trs["collapse"] is None)
     check("break detected single", trs["provisioned"]["break_count"] == 1)
 
+    # 11. --check: epoch-local collapse → rc 1 with ALARM, never silent.
+    with tempfile.TemporaryDirectory() as td:
+        import io
+        import contextlib
+        cdb = os.path.join(td, "collapse.sqlite")
+        for i, (q, e) in enumerate([
+                (0.0100, 0.0150), (0.0102, 0.0152),
+                (0.0101, 0.0149), (0.0100, 0.0149)]):
+            row = dict(s)
+            row["ts"] = "t%d" % i
+            row["Q_raw"] = q
+            row["Q_eff"] = e
+            append(row, db_path=cdb)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = check_trend(db_path=cdb)
+        check("check collapse rc1", rc == 1)
+        check("check alarm line", buf.getvalue().startswith("ALARM:"))
+
+        # 12. --check: flat series → silent rc 0 (nothing to report).
+        fdb = os.path.join(td, "flat.sqlite")
+        for i in range(3):
+            row = dict(s)
+            row["ts"] = "f%d" % i
+            row["Q_raw"] = 0.0100
+            row["Q_eff"] = 0.0150
+            append(row, db_path=fdb)
+        buf2 = io.StringIO()
+        with contextlib.redirect_stdout(buf2):
+            rc2 = check_trend(db_path=fdb)
+        check("check flat silent", rc2 == 0 and buf2.getvalue() == "")
+
+        # 13. --check: fresh/absent series → silent abstain rc 0 (no crash).
+        buf3 = io.StringIO()
+        with contextlib.redirect_stdout(buf3):
+            rc3 = check_trend(db_path=os.path.join(td, "fresh.sqlite"))
+        check("check fresh abstain", rc3 == 0 and buf3.getvalue() == "")
+
+        # 14. --check: exactly one sample → silent abstain rc 0 (<2 samples).
+        sdb = os.path.join(td, "single.sqlite")
+        row = dict(s)
+        row["ts"] = "s0"
+        append(row, db_path=sdb)
+        buf4 = io.StringIO()
+        with contextlib.redirect_stdout(buf4):
+            rc4 = check_trend(db_path=sdb)
+        check("check single abstain", rc4 == 0 and buf4.getvalue() == "")
+
+        # 15. --check: unreadable series → fail-closed rc 2 (never a silent pass).
+        rc5 = check_trend(db_path=td)
+        check("check error rc2", rc5 == 2)
+
     print(json.dumps({"schema": "kappa-trend-selftest",
-                      "passed": 10, "ok": True}, ensure_ascii=False))
+                      "passed": 15, "ok": True}, ensure_ascii=False))
     return 0
 
 
@@ -567,6 +657,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--show", action="store_true", help="print the stored series")
     ap.add_argument("--trend", action="store_true", help="print the dQ/dt gradient")
+    ap.add_argument("--check", action="store_true",
+                    help="report-only watchdog: silent healthy, ALARM+exit 1 on collapse")
     ap.add_argument("--selftest", action="store_true", help="deterministic self-check")
     args = ap.parse_args()
     if args.show:
@@ -574,6 +666,8 @@ def main():
         return
     if args.trend:
         return trend()
+    if args.check:
+        return check_trend()
     if args.selftest:
         return _selftest()
     s = sample()
