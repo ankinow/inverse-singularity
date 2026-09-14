@@ -41,6 +41,19 @@ The Goodhart safeguard is structural, identical to its siblings: the instrument
 samples and appends only — no gate, no decision path, no prescriptive consumer.
 ε_boundary > 0 is the signature of the A4 never-guess wall, not a defect to
 optimize away; the trend *reads its movement*, never acts on it.
+
+Modes:
+  * `--trend`       (explicit) — print the full JSON trend read, exit 0 always.
+  * `--check`       — report-only watch: **silent** (exit 0) on a healthy trend
+    (`boundary-stable` / `boundary-receding` / `abstain`), and prints a compact
+    `ALARM:` line + the JSON and exits 1 on the movement verdicts that mean a
+    real regression (`boundary-widening`, `code-regressing`, `both-worsening`).
+    The exit code is a *reporting* mechanism (so a cron delivery surfaces the
+    movement), NOT a gate on any action — nothing edits or prescribes (the same
+    contract as `axiom_joint_trend.py --check` and `a5_constraint_provenance.py
+    --check`).
+  * `--selftest`    — prove the fire/abstain logic; exits non-zero on failure.
+  * (default)       — sample-and-append once (idempotent read-only; cron weekly).
 """
 
 import json
@@ -58,6 +71,13 @@ import a7_boundary_probe as probe  # noqa: E402  (single source of truth)
 DB = "/mnt/hermes/state.db"
 TREND_DB = str(Path(__file__).resolve().parent.parent / "data" / "a7_boundary_trend.sqlite")
 SCHEMA = "a7-boundary-trend/v1"
+
+# The trend verdicts that a report-only watchdog should surface. `boundary-stable`
+# and `boundary-receding` are healthy reads (receding is the *good* direction — the
+# floor shrinking as the classifier recovers more intent); `abstain` is honest
+# under-sampling. The three below mean a real regression in the boundary shape.
+# This is a *reporting* classification, never a gate: nothing acts on it.
+ALARM_VERDICTS = ("boundary-widening", "code-regressing", "both-worsening")
 
 
 def _now_iso():
@@ -308,6 +328,15 @@ def _selftest():
     con.close()
     check("abstain", trend(solo)["verdict"] == "abstain", "<2 samples → abstain")
 
+    # 6. the ALARM classification (the --check report contract): only the three
+    #    regression verdicts are surface-worthy; every healthy/abstain read is silent.
+    alarm = {"boundary-widening", "code-regressing", "both-worsening"}
+    healthy = {"boundary-stable", "boundary-receding", "abstain"}
+    check("alarm-verdicts", set(ALARM_VERDICTS) == alarm,
+          "exactly the three regression verdicts are report-worthy")
+    check("healthy-silent", alarm.isdisjoint(healthy),
+          "no healthy/abstain verdict is ever surfaced")
+
     return ok
 
 
@@ -317,8 +346,20 @@ def main():
         print("SELFTEST:", "PASS" if ok else "FAIL")
         sys.exit(0 if ok else 1)
 
+    out = trend()
+    if "--check" in sys.argv:
+        verdict = out["verdict"]
+        if verdict in ALARM_VERDICTS:
+            print("ALARM: %s (ε_code=%s→%s, ε_boundary=%s→%s)"
+                  % (verdict, out["first_code_count"], out["last_code_count"],
+                     out["first_boundary_count"], out["last_boundary_count"]))
+            print(json.dumps(out, indent=2))
+            sys.exit(1)
+        # Healthy (boundary-stable / boundary-receding) or abstain: silent.
+        sys.exit(0)
+
     if "--trend" in sys.argv:
-        print(json.dumps(trend(), indent=2))
+        print(json.dumps(out, indent=2))
         return
 
     # default: sample-and-append once (idempotent read-only; cron calls this weekly)
