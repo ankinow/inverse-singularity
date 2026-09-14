@@ -41,12 +41,21 @@ binary is absent).
 Usage:
   python3 fingerprint_parity_check.py            # full check (builds if needed)
   python3 fingerprint_parity_check.py --skip-build
+  python3 fingerprint_parity_check.py --check    # scheduled-consumer mode (silent on parity)
   python3 fingerprint_parity_check.py --selftest # prove each assert path
 
 Exit:
   0  PARITY — both implementations agree on every checked axis.
   1  DRIFT  — at least one axis disagrees (named in the DRIFT line).
   2  ERROR  — could not obtain one side's output (build failed / parse miss).
+
+`--check` is the scheduled-consumer form (the same discipline as crate_identity
+`--check`, a5 `--check`, and the joint-reader `--check`): it suppresses the
+success line so a weekly cron delivers **only** a drift/error (reporting, never
+prescribing — it never edits either implementation). The exit codes are
+identical to the human form: 0 on parity, 1 with a `DRIFT` line, 2 with an
+`ERROR` line. It runs `--skip-build` internally (a cron must not rebuild; it
+fails closed if the collapse binary has not yet been built).
 """
 
 import argparse
@@ -250,6 +259,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--skip-build", action="store_true",
                     help="reuse a previously built collapse binary")
+    ap.add_argument("--check", action="store_true",
+                    help="scheduled-consumer mode: silent on parity, surface only drift/error")
     ap.add_argument("--selftest", action="store_true",
                     help="run the internal assert-path proof, exit")
     args = ap.parse_args()
@@ -261,13 +272,19 @@ def main():
         print(f"SELFTEST: {passed}/{total}")
         sys.exit(0 if passed == total else 1)
 
+    # --check is the cron form: same verdicts, but silent on parity (so the
+    # scheduled delivery carries only drift/error). It goes through --skip-build
+    # so a cron never triggers a rebuild.
+    check_silent = args.check
+    run_skip_build = args.skip_build or check_silent
+
     # source-term invariants first (pure Python, no build)
     st = source_term_checks()
     st_bad = [n for n, b in st if not b]
 
     try:
         py = python_scalars()
-        ru = rust_scalars(skip_build=args.skip_build)
+        ru = rust_scalars(skip_build=run_skip_build)
     except RuntimeError as exc:
         print(f"ERROR: {exc}")
         sys.exit(2)
@@ -282,10 +299,11 @@ def main():
             print(f"  {name}: {detail}")
         sys.exit(1)
 
-    print(
-        f"PARITY — Rust ⇄ Python agree on {len(results) + len(st)} axes "
-        f"(Q={py['q_canonical']:.5f}, NEI=7 steps, audit, {len(st)} source-term invariants)."
-    )
+    if not check_silent:
+        print(
+            f"PARITY — Rust ⇄ Python agree on {len(results) + len(st)} axes "
+            f"(Q={py['q_canonical']:.5f}, NEI=7 steps, audit, {len(st)} source-term invariants)."
+        )
     sys.exit(0)
 
 

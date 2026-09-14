@@ -6,6 +6,14 @@
 
 ---
 
+## v0.8.31 — 2026-09-13 — fingerprint parity check gains its scheduled consumer (`--check`)
+
+v0.8.30 shipped the instrument that *surfaces* the Rust⇄Python fingerprint parity (the Q=1.9845 shared surface, 34 axes) but left it run-only-by-human — the exact gap every sibling fail-closed instrument closes with a cron (a5 `--check` → `56fba415da49`; crate_identity → `1eaf2b71253c`; joint `--check` → `6e3bb938efc3`; epsilon_code/curiosity samplers). The runtime's most fundamental invariant — that the Rust primary and Python mirror produce identical scalar outputs — was still "surfaced, not trusted" in the scheduled sense: a silent fork between the two would pass `cargo test` and pass a Python smoke run, and nothing on a clock would flag it.
+
+This release closes the consumer gap without touching the measure. `fingerprint_parity_check.py` gains a **`--check`** mode (the same discipline as its siblings): silent (exit 0) on PARITY so the weekly cron delivers **only** a `DRIFT` line (exit 1) or `ERROR` line (exit 2); it runs `--skip-build` internally so a cron never triggers a rebuild and fails closed if the collapse binary has not yet been built. The human form (`python3 fingerprint_parity_check.py`, `--skip-build`) is unchanged — it still prints the full "PARITY — 34 axes" line. Backed by a weekly no-agent cron (`03a92b245a88`, Mon 10:05, completing the Monday IST instrumentation band after the 09:17 samplers, 09:47 joint watchdog, 09:55 crate watchdog) via `~/.hermes/scripts/ist-fingerprint-parity-watchdog.sh` (POSIX sh, silent on parity, fail-closed rc 2 on unreadable runtime, performs NO action — Goodhart preserved).
+
+Proof executed 2026-09-13: `--check` silent rc 0 on live parity; fail-closed ERROR path (collapse binary temporarily absent → rc 2 with explicit message); `--selftest` 5/5; normal run still prints PARITY (Q=1.98447); wrapper silent rc 0 + fail-closed rc 2 on bad `IST_RUNTIME`; `hermes cron run 03a92b245a88` → "Ran now: succeeded" (silent). cargo test 40/40, py_compile clean, crate identity re-aligned 0.8.31.
+
 ## v0.8.30 — 2026-09-13 — fingerprint parity check: Rust primary ⇄ Python mirror are now surfaced, not trusted
 
 The `framework/ist_engine.py` module docstring has always said the Python mirror and the Rust primary "MUST produce identical scalar outputs" — the Q=1.9845 fingerprint — and the Rust test suite asserts the canonical value (`sourced_mirrored_decreases_q_versus_chosen`, `portfolio_all_chosen_matches_canonical_q`). But the parity was held by *discipline*, not by *surfacing*: nothing ran both implementations and diffed their output, so a silent fork between Rust and Python would pass `cargo test` (which tests Rust against itself) and a naive Python smoke run (which tests the mirror against nothing). The recent type-level additions (`phi_sourced`/`route` v0.8.25, `constraint_margin` v0.8.26, `constraint_portfolio` v0.8.27) widened that un-surfaced surface.
