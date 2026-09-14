@@ -89,8 +89,10 @@ def _local_epoch(s: str) -> float:
 class TodoTracker:
     def __init__(self) -> None:
         self.fails: list[str] = []
+        self.n_checks = 0
 
     def check(self, cond: bool, msg: str) -> None:
+        self.n_checks += 1
         if not cond:
             self.fails.append(msg)
 
@@ -162,6 +164,33 @@ FAIL_MARKERS = ("traceback", "unhandled", "fatal error", "job failed",
 SAFE_CONTEXT = re.compile(
     r"(auto_closed|triagem|findings|sast|muted|risk_accept)", re.IGNORECASE)
 
+# COMPLETION SIGNAL — the deliverable signature is broader than the literal
+# `[done` backlog marker. The dev-continuo loop writes `[done ...]` to
+# BACKLOG.md (not echoed into the final assistant tail), and the tick's last
+# message instead carries completion *language* plus a verified commit. The
+# v0.8.7 classifier matched only `[done`, so 13 of 17 real completed ticks
+# (item concluído + `commit <sha>` pushed) were filed as OTHER — an ε_code
+# coverage gap identical in kind to the UNKNOWN residual the action-typing
+# classifier keeps compressing. This closes it with the same never-guess
+# discipline: completion must be *named* by a work noun, never inferred.
+#
+#   done-word  — "item/task/mission is done/complete/concluído/finished" with
+#                the completion verb within 40 chars of the work noun.
+#   report-hdr — the structured deliverable header the loop emits on success
+#                ("## Relatório — dev-contínuo" / "**Item**: ..." / a
+#                "report delivered" tail).
+DONE_WORD = re.compile(
+    r"\b(item|task|mission|tick|work)\b[^.!?\n]{0,40}\b"
+    r"(done|complete[dt]?|conclu[ií]d[oa]|trabalhad[oa]|finished|entregu[ea])\b",
+    re.IGNORECASE)
+REPORT_HDR = re.compile(
+    r"(##\s*relat[oó]rio|^\*\*item\*\*:|\breport\s+delivered\b|"
+    r"\bfinal\s+summary\b)",
+    re.IGNORECASE | re.MULTILINE)
+BACKLOG_DONE = re.compile(
+    r"\bbacklog[^.!?\n]{0,60}\b(updated|update|atualizad[oa])\b",
+    re.IGNORECASE)
+
 
 def classify_outcome(tail: str, end_reason: str, api: int) -> str:
     t = tail.strip()
@@ -176,11 +205,11 @@ def classify_outcome(tail: str, end_reason: str, api: int) -> str:
         return "CAP_CUT"
     if "[done" in low:
         return "DONE"
-    if re.search(r"\bQA (GREEN|VERDE)\b", t, re.IGNORECASE):
-        return "GATE_GREEN"
     # A cap-hit tick may still deliver: the harness writes a final report
     # right before the budget ends. Deliverable signature = substantive
     # structured report + at least one verifiable artifact claim nearby.
+    # (Ordered BEFORE the generic completion-language check so a cap-hit
+    # stays CAP_DELIVERED / CAP_CUT_SOFT rather than collapsing into DONE.)
     if api >= DEADLINE_TURN:
         has_report = ("relat" in low or "evidência" in low
                       or "evidencia" in low or "**item**" in low)
@@ -188,6 +217,12 @@ def classify_outcome(tail: str, end_reason: str, api: int) -> str:
         if has_report and has_artifact:
             return "CAP_DELIVERED"
         return "CAP_CUT_SOFT"
+    # Completion language (the real deliverable signature — named, never
+    # guessed) or the structured report the loop emits on a completed item.
+    if DONE_WORD.search(t) or REPORT_HDR.search(t) or BACKLOG_DONE.search(t):
+        return "DONE"
+    if re.search(r"\bQA (GREEN|VERDE)\b", t, re.IGNORECASE):
+        return "GATE_GREEN"
     if any(m in low for m in FAIL_MARKERS) and not SAFE_CONTEXT.search(t):
         return "FAIL"
     return "OTHER"
@@ -268,6 +303,14 @@ def aggregate(rows: list[dict]) -> dict:
 
 
 def verdict_of(cap_stats: dict, sub_stats: dict) -> str:
+    # Distinct nulls, never conflated (the thread's honest-asymmetry doctrine):
+    #   DEADLINE_UNBOUND  — zero ticks reached the cap (τ never fired this
+    #                        window); the knob is *workload-limited*, not
+    #                        knob-limited, so there is no cap-effect to measure.
+    #   ABSTAIN           — both groups have data but < MIN_GROUP_N each
+    #                        (measurement underpowered, not a structural null).
+    if cap_stats["n"] == 0:
+        return "DEADLINE_UNBOUND(%d ticks, 0 capped)" % sub_stats["n"]
     if cap_stats["n"] < MIN_GROUP_N or sub_stats["n"] < MIN_GROUP_N:
         return "ABSTAIN(sample<%d)" % MIN_GROUP_N
     ps_c = cap_stats["proof_score"]
@@ -382,6 +425,29 @@ def selftest() -> int:
         "", 66) == "CAP_DELIVERED", "cap-hit final report w/ artifact")
     tt.check(classify_outcome("exploring the wiki gap…", "", 66)
              == "CAP_CUT_SOFT", "cap-hit without deliverable signature")
+    # --- completion-language DONE (the ε_code coverage fix) ---------------
+    # Real tails from the 2026-09-11..13 dev-continuo ticks that the v0.8.7
+    # classifier miscounted as OTHER despite verified commits. Completion must
+    # be NAMED by a work noun; partial/investigating tails must NOT flip.
+    tt.check(classify_outcome(
+        "Everything is complete and verified. commit `404f4dc`. Report delivered.",
+        "", 62) == "DONE", "completion language + commit -> DONE")
+    tt.check(classify_outcome(
+        "## Relatório — dev-contínuo (2026-09-12)\n**Item**: Frontier ε_code v0.8.18, "
+        "commit `8405dfd` PUSHED.", "", 64) == "DONE",
+        "structured report header -> DONE")
+    tt.check(classify_outcome(
+        "The backlog is updated. The item is complete: build→test→verify→commit.",
+        "", 28) == "DONE", "backlog-updated completion -> DONE")
+    tt.check(classify_outcome(
+        "BACKLOG.md íntegro e correto. Item concluído, commitado e empurrado.",
+        "", 22) == "DONE", "pt-BR item concluído -> DONE")
+    tt.check(classify_outcome(
+        "investigating the sqlite3 regex mismatch…", "", 32) == "OTHER",
+        "investigating w/o completion noun stays OTHER (no guess)")
+    tt.check(classify_outcome(
+        "The monitor reports IDLE — queue is empty and clean.", "", 48) == "OTHER",
+        "IDLE-in-report (no work noun) stays OTHER — no false DONE)")
 
     # --- sha extraction -----------------------------------------------------
     corpus = ("- [done] commit `abc1234ef5678` pushed `0011223..abc1234ef`\n"
@@ -418,6 +484,12 @@ def selftest() -> int:
     tiny_cap = aggregate(rows[:2])
     tt.check(verdict_of(tiny_cap, sub).startswith("ABSTAIN"),
              "verdict abstains below MIN_GROUP_N")
+    # Deadline never fired: zero capped ticks -> a distinct null, not paraphrased
+    # as "sample too small" (the workload-limited vs knob-limited distinction).
+    empty_cap = aggregate([])           # no CAPPED rows at all
+    sub_full = aggregate([mk("DONE", True, "SUBCAP", 20)] * 8)
+    tt.check(verdict_of(empty_cap, sub_full).startswith("DEADLINE_UNBOUND"),
+             "empty capped group -> DEADLINE_UNBOUND (not ABSTAIN)")
 
     # --- window assignment --------------------------------------------------
     tt.check(window_of(_local_epoch("2026-08-23 22:30")) == "A_firstarm_tau66",
@@ -430,8 +502,7 @@ def selftest() -> int:
     if not tt.ok:
         print("SELF-TEST FAIL:", tt.fails, file=sys.stderr)
         return 1
-    print(f"SELF-CHECK PASS ({len(tt.fails)==0} · "
-          f"{sum(1 for _ in range(14))} asserts)")
+    print(f"SELF-CHECK PASS ({tt.n_checks} asserts · 0 fails)")
     return 0
 
 
