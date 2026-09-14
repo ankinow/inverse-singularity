@@ -139,7 +139,6 @@ def parse_diary(diary_dir: str) -> list[dict]:
             m = re.match(r"^⊗S:(mutation|observe)\b", s)
             if m:
                 cur["blocks"][m.group(1)] += 1
-                cur["tools"][_tool_of(_following_tool(cur)) or "⊗S"] += 0  # no-op keep tools clean
                 continue
             tm = re.match(r"^>T:([a-zA-Z_]+)", s)
             if tm:
@@ -233,39 +232,34 @@ def _evaluate(rows: list[tuple[float, float]]) -> tuple[bool, float, float, floa
     return bucket_curve(rows)
 
 
-def main() -> int:
-    ta = TodoTracker()
-    sessions = parse_diary(DIARY)
-    ta.check(sessions != [], "no diary sessions with >= MIN_TOOL_TURNS")
+def analyze(sessions: list[dict]) -> dict:
+    """Tallies + the typed intent-curve verdict — single source of truth.
 
+    Exposed for import so the append-only trend reader (`a4_action_typing_trend.py`)
+    never re-implements the measure. `curve_state` is a normalized token
+    (no-signal | no-typed | mislabel-abstain | abstain | no-collapse |
+    collapse-detected) so a scheduled consumer can classify a sample without
+    string-matching the human-readable verdict.
+    """
     n_block = sum(typed_block_counts(s) for s in sessions)
     n_inf = sum(inferred_block_counts(s) for s in sessions)
     n_unk = sum(s["unknown"] for s in sessions)
     n_all = n_block + n_inf + n_unk
     typed_sessions = [s for s in sessions if typed_block_counts(s) > 0]
     inf_sessions = [s for s in sessions if inferred_block_counts(s) > 0]
-
     coverage = (n_block / n_all) if n_all else 0.0
     inferred_coverage = (n_inf / n_all) if n_all else 0.0
-    mislabel = sum(s["mislabels"] for s in sessions)
 
-    print("=== Action-typing instrument — mutation vs observe at the work-block level ===")
-    print(f"diary_dir     : {DIARY}")
-    print(f"sessions (>= {MIN_TOOL_TURNS} tool turns): {len(sessions)}")
-    print(f"blocks        : typed={n_block}  inferred={n_inf}  unknown={n_unk}  total={n_all}")
-    print(f"coverage      : typed={coverage:.1%}  (typed+inferred={coverage + inferred_coverage:.1%})  "
-          f"floor={COVERAGE_FLOOR:.0%}")
-    print(f"typed sessions: {len(typed_sessions)}  inferred-only sessions: {len(inf_sessions)}")
-    print(f"mislabels     : {mislabel} typed blocks (tool-kind conflicts; tol {MISLABEL_TOL:.0%})")
-
-    # --- curve computation: typed signal where present, else inferred-as-probe ---
     verdict = "NO SIGNAL — no typed or inferred action-typing present (doctrine not yet adopted in this diary window)"
     detected = False
     source = "none"
+    curve_state = "no-signal"
+    rho: float | None = None
+    ratio: float | None = None
+    m_low: float | None = None
     if n_block > 0 or n_inf > 0:
         if n_block == 0:
-            # doctrine not adopted yet: honest abstain, not a fabricated curve. The
-            # inferred tool-kind probe is reported BELOW as informational floor/bias only.
+            curve_state = "no-typed"
             verdict = (
                 f"ABSTAIN — no typed ⊗S: action-typing yet (typed={coverage:.1%} < "
                 f"{COVERAGE_FLOOR:.0%} floor, 0 typed sessions). Curve deferred until the "
@@ -273,21 +267,22 @@ def main() -> int:
                 f"inferred probe follows, clearly labeled, never mixed into a curve."
             )
         else:
-            src_sessions = [s for s in sessions if typed_block_counts(s) > 0]
             source = "typed"
-            rows = [(mut_rate(s["blocks"]), s["tools"].total()) for s in src_sessions]
+            rows = [(mut_rate(s["blocks"]), s["tools"].total()) for s in typed_sessions]
             rows = [r for r in rows if not math.isnan(r[0])]
-            mislabel_rate = (sum(s["mislabels"] for s in src_sessions) / n_block) if n_block else 0.0
+            mislabel_rate = (sum(s["mislabels"] for s in typed_sessions) / n_block) if n_block else 0.0
             if mislabel_rate > MISLABEL_TOL:
+                curve_state = "mislabel-abstain"
                 verdict = (f"MISLABEL-ABSTAIN — {mislabel_rate:.1%} of typed blocks mislabel "
                            f"tool-kind vs intent (tol {MISLABEL_TOL:.0%}); typing not yet trustworthy")
-                detected = False
-            elif len(src_sessions) < MIN_SESSIONS:
+            elif len(typed_sessions) < MIN_SESSIONS:
+                curve_state = "abstain"
                 verdict = (f"ABSTAIN — typed coverage cleared the floor ({coverage:.1%}) but "
-                           f"only {len(src_sessions)} typed-carrying sessions (< {MIN_SESSIONS}); "
+                           f"only {len(typed_sessions)} typed-carrying sessions (< {MIN_SESSIONS}); "
                            f"sample too small for a defensible curve")
             else:
                 detected, rho, ratio, m_low = _evaluate(rows)
+                curve_state = "collapse-detected" if detected else "no-collapse"
                 verdict = (
                     f"ACTION-INTENT-COLLAPSE DETECTED ({source}) — high-κ sessions stop mutating "
                     f"and spend executing turns verifying [mut_low={m_low:.2f}, ρ={rho:.3f}, "
@@ -296,7 +291,45 @@ def main() -> int:
                     f"NO ACTION-INTENT COLLAPSE ({source}) — mutation-rate does not fall with κ "
                     f"in this window [mut_low={m_low:.2f}, ρ={rho:.3f}, ratio={ratio:.2f}]"
                 )
-    print(f"VERDICT       : {verdict}")
+    return {
+        "sessions": len(sessions),
+        "blocks_typed": n_block,
+        "blocks_inferred": n_inf,
+        "blocks_unknown": n_unk,
+        "blocks_total": n_all,
+        "coverage": coverage,
+        "inferred_coverage": inferred_coverage,
+        "typed_sessions": len(typed_sessions),
+        "inferred_sessions": len(inf_sessions),
+        "mislabels": sum(s["mislabels"] for s in sessions),
+        "source": source,
+        "curve_state": curve_state,
+        "detected": detected,
+        "verdict": verdict,
+        "mut_low": m_low,
+        "rho": rho,
+        "ratio": ratio,
+    }
+
+
+def main() -> int:
+    ta = TodoTracker()
+    sessions = parse_diary(DIARY)
+    ta.check(sessions != [], "no diary sessions with >= MIN_TOOL_TURNS")
+
+    a = analyze(sessions)
+
+    print("=== Action-typing instrument — mutation vs observe at the work-block level ===")
+    print(f"diary_dir     : {DIARY}")
+    print(f"sessions (>= {MIN_TOOL_TURNS} tool turns): {a['sessions']}")
+    print(f"blocks        : typed={a['blocks_typed']}  inferred={a['blocks_inferred']}  "
+          f"unknown={a['blocks_unknown']}  total={a['blocks_total']}")
+    print(f"coverage      : typed={a['coverage']:.1%}  "
+          f"(typed+inferred={a['coverage'] + a['inferred_coverage']:.1%})  "
+          f"floor={COVERAGE_FLOOR:.0%}")
+    print(f"typed sessions: {a['typed_sessions']}  inferred-only sessions: {a['inferred_sessions']}")
+    print(f"mislabels     : {a['mislabels']} typed blocks (tool-kind conflicts; tol {MISLABEL_TOL:.0%})")
+    print(f"VERDICT       : {a['verdict']}")
 
     # informational floor/bias read of legacy lines — never a curve, always labeled
     _inferred_probe(sessions)
