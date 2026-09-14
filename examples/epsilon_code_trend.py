@@ -31,10 +31,16 @@ definition; ε_system (the sovereignty residue) is untouched because the classif
 resolves *shape*, never intent it cannot prove.
 
 Exit 0 always (read-only), except `--selftest` which exits non-zero on failure.
+`--help` prints usage and exits 0; an unrecognized flag exits 2 — neither ever falls
+through to the default (append) path (v0.8.38 arg hygiene).
 """
 
+import io
 import json
+import os
+import shutil
 import sqlite3
+import subprocess
 import sys
 import time
 import hashlib
@@ -49,6 +55,89 @@ DB = "/mnt/hermes/state.db"
 TREND_DB = str(Path(__file__).resolve().parent.parent / "data" / "epsilon_code_trend.sqlite")
 
 SCHEMA = "epsilon-code-trend/v1"
+
+USAGE = (
+    "usage: epsilon_code_trend.py [--trend | --selftest | --help]\n"
+    "  (default) sample the live ε_code UNKNOWN fraction once and append a row\n"
+    "  --trend   read the append-only series and print the movement verdict (JSON)\n"
+    "  --selftest prove the append/verdict logic; exits non-zero on failure\n"
+)
+
+KNOWN_FLAGS = ("--trend", "--selftest", "--help", "-h")
+
+
+def arg_guard(args, err=sys.stderr, out=sys.stdout):
+    """Up-front arg hygiene — an unrecognized flag must NEVER fall through to the
+    default (append/sample) path.
+
+    Proven incident (2026-09-14): `a9_claim_evidence_trend.py --help` appended a
+    real sample (seq 6) to the live series, and every sibling sharing this file's
+    shape (`--trend` in argv else sample_once()) had the same defect for *any*
+    typo'd flag — a wrapper running `--tren` quietly grows the series the trend
+    reads, which at the verdict level is indistinguishable from real signal.
+    Touches no database: returns 2 (unknown flag → usage on stderr), 0 (`--help`
+    printed usage), or None (the caller may proceed). Pure, so it is pinned both
+    by selftest and by a hermetic end-to-end re-run of this file.
+    """
+    unknown = [a for a in args if a not in KNOWN_FLAGS]
+    if unknown:
+        err.write("unknown flag(s): %s\n%s" % (" ".join(unknown), USAGE))
+        return 2
+    if "--help" in args or "-h" in args:
+        out.write(USAGE)
+        return 0
+    return None
+
+
+def _arg_hygiene_check(tmp):
+    """Pin the guard end-to-end without ever risking the live series: re-run THIS
+    file from a hermetic copy (tmp/hygiene/examples + …/data) and assert that
+    `--help` (exit 0, usage on stdout) and a typo'd flag (exit 2, usage on stderr)
+    leave no series DB behind. Pre-fix, both appended a real sample."""
+    src = str(Path(__file__).resolve())
+    root = os.path.join(tmp, "hygiene")
+    ex_dir = os.path.join(root, "examples")
+    data_dir = os.path.join(root, "data")
+    os.makedirs(data_dir)
+    shutil.copytree(str(Path(src).parent), ex_dir)
+    script = os.path.join(ex_dir, os.path.basename(src))
+    series = os.path.join(data_dir, os.path.basename(TREND_DB))
+
+    def run(*flags):
+        proc = subprocess.run([sys.executable, script, *flags],
+                              capture_output=True, text=True, timeout=300)
+        rows = None
+        if os.path.exists(series):
+            con = sqlite3.connect("file:%s?mode=ro" % series, uri=True)
+            try:
+                rows = con.execute("SELECT COUNT(*) FROM samples").fetchone()[0]
+            except sqlite3.Error:
+                rows = -1
+            finally:
+                con.close()
+        return proc, rows
+
+    sink = io.StringIO()
+    pure = (arg_guard(["--trend", "--selftest"], err=sink, out=sink) is None
+            and arg_guard(["--help"], err=sink, out=sink) == 0
+            and arg_guard(["--zz-bogus"], err=sink, out=sink) == 2)
+    proc_help, rows_help = run("--help")
+    proc_bad, rows_bad = run("--tren")            # realistic typo of --trend
+    proc_read, rows_read = run("--trend")         # fresh series: abstain, not a crash
+    out = {
+        "guard-pure": pure,
+        "help-no-effect": (proc_help.returncode == 0
+                           and USAGE.splitlines()[0] in proc_help.stdout
+                           and rows_help is None),
+        "unknown-exit-2": (proc_bad.returncode == 2
+                           and "unknown flag" in proc_bad.stderr
+                           and rows_bad is None),
+        "read-fresh-abstain": (proc_read.returncode == 0
+                               and '"abstain"' in proc_read.stdout
+                               and rows_read == 0),
+    }
+    shutil.rmtree(root, ignore_errors=True)
+    return out
 
 
 def _now_iso():
@@ -120,6 +209,7 @@ def sample_once(db=DB, out_db=TREND_DB, now=None):
 
 
 def _load_series(out_db=TREND_DB):
+    init_db(out_db)  # a first-ever read on a fresh series is an abstain, not a crash
     con = sqlite3.connect(f"file:{out_db}?mode=ro", uri=True)
     cur = con.cursor()
     cur.execute(
@@ -241,16 +331,30 @@ def _selftest():
     con.close()
     ok &= trend(tdb + ".solo")["verdict"] == "abstain"
 
+    # 5. arg hygiene: `--help` and a typo'd flag must NEVER fall through to the
+    #    default (append) path. Pinned as a pure function AND end-to-end from a
+    #    hermetic copy of this file — pre-fix both appended a real sample.
+    _hyg = _arg_hygiene_check(tmp)
+    ok &= all(_hyg.values())
+
     print("  selftest[import        ] %s" % ("PASS" if (hasattr(cov, "load_commands") and hasattr(at, "classify")) else "FAIL"))
     print("  selftest[append        ] %s  (seq 1,2 monotonic, order preserved)" % ("PASS" if (len(rows) == 2 and rows[0]["seq"] == 1 and rows[1]["seq"] == 2) else "FAIL"))
     print("  selftest[flat          ] %s  (3.8/3.8/3.8 → stable)" % ("PASS" if verdict_of([3.8, 3.8, 3.8]) == "stable" else "FAIL"))
     print("  selftest[worsening     ] %s  (3.8/4.2/4.7 → worsening)" % ("PASS" if verdict_of([3.8, 4.2, 4.7]) == "worsening" else "FAIL"))
     print("  selftest[improving     ] %s  (4.7/4.2/3.8 → improving)" % ("PASS" if verdict_of([4.7, 4.2, 3.8]) == "improving" else "FAIL"))
     print("  selftest[abstain       ] %s  (<2 samples → abstain)" % ("PASS" if trend(tdb + ".solo")["verdict"] == "abstain" else "FAIL"))
+    print("  selftest[arg-guard-pure] %s  (unknown→2, --help→0, known→proceed)" % ("PASS" if _hyg["guard-pure"] else "FAIL"))
+    print("  selftest[arg-help-none ] %s  (hermetic re-run: --help writes no row)" % ("PASS" if _hyg["help-no-effect"] else "FAIL"))
+    print("  selftest[arg-unknown-2 ] %s  (hermetic re-run: --tren writes no row)" % ("PASS" if _hyg["unknown-exit-2"] else "FAIL"))
+    print("  selftest[arg-read-fresh] %s  (fresh series: --trend abstains, no crash)" % ("PASS" if _hyg["read-fresh-abstain"] else "FAIL"))
     return ok
 
 
 def main():
+    rc = arg_guard(sys.argv[1:])
+    if rc is not None:
+        sys.exit(rc)
+
     if "--selftest" in sys.argv:
         ok = _selftest()
         print("SELFTEST:", "PASS" if ok else "FAIL")
