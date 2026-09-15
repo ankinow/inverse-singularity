@@ -25,6 +25,16 @@ sha256sum/journalctl/uptime/nproc/uname/hostname/id/whoami/mount/findmnt), print
 `cd <path>`/`sudo`/`sudo -S` so the actual verb is visible; `tee`, real `rsync -a`,
 `omarchy hook install`/`update`, and profile-prefixed `hermes config set` joined the
 mutation side. Each added shape is pinned by a selftest case below.
+
+ε_code compression pass 4 (2026-09-14): the a7 boundary-trend watchdog fired its
+first scheduled `code-regressing` alarm (ε_code 128→129 on the live series) and the
+residual was re-measured against state.db. Shapes the classifier had left UNKNOWN
+while their intent was recoverable: `git` global-option forms (`git -C <path> status`
+— mirrored on the mutation side for `git -C <path> push|commit|…`), the `test`
+builtin, `pgrep`, `desktop-file-validate`, `cryptsetup luksDump|status` (with the
+mutating `luks*` verbs on the mutation side), test-script invocations
+(`bash|sh <…/test/…|selftest…>.sh`) and `python3 <script> --dry-run`. Mutation-first
+ordering is unchanged: every observe shape fires only after all mutation patterns fail.
 """
 
 from __future__ import annotations
@@ -72,7 +82,8 @@ def _normalize(command: str) -> str:
 # Order matters: mutation wins over observe when both match (fail-safe direction).
 
 _MUTATION_VERB_PATTERNS = (
-    r"\b(git\s+(push|commit|merge|rebase|cherry-pick|reset|checkout\s+-b|stash\s+(apply|pop|drop|clear)))\b",
+    r"\bgit\s+(?:(?:-C\s+\S+|-c\s+\S+|--git-dir=\S+|--work-tree=\S+|--no-pager)\s+)*"
+    r"(push|commit|merge|rebase|cherry-pick|reset|checkout\s+-b|stash\s+(apply|pop|drop|clear))\b",
     r"\b(npm\s+(i\b|install\b|ci\b|uninstall|update)|bun\s+(add\b|remove\b|install\b)|"
     r"pacman\s+-[A-Za-z]*S|pip3?\s+install|pipx\s+install|cargo\s+install)\b",
     # npm mutation (audit fix rewrites lockfile/deps; publish/link/pack mutate registry)
@@ -93,6 +104,10 @@ _MUTATION_VERB_PATTERNS = (
     r"\bkill\b|\bpkill\b|\breboot\b|\bshutdown\b",
     # filesystem mutation: umount detaches a device (mount-read is in observe list)
     r"\bumount\b",
+    # LUKS state-changing verbs (reads `luksDump`/`status` are in the observe list)
+    r"\bcryptsetup\s+(luksFormat|luksOpen|luksClose|luksAddKey|luksRemoveKey|"
+    r"luksChangeKey|luksErase|luksKillSlot|luksHeaderRestore|luksHeaderBackup|"
+    r"wipeHeader|luksResume|luksSuspend|open|close)\b",
     # install copies + sets permissions on a file (the `install -m 755 SRC /usr/local/bin/` shape)
     r"\binstall\s+(?:-[A-Za-z]+\s+)*[^-]",
     # known system-image writes (bootloader initramfs/generators)
@@ -129,8 +144,9 @@ _MUTATION_VERB_PATTERNS = (
 _WRITE_REDIRECT = re.compile(r"(>>|>)\s*(?!/dev/null)(?=[\w.~/\\$])")
 
 _OBSERVE_PREFIX_PATTERNS = (
-    # git read forms (added for ε_code compression)
-    r"\bgit\s+(status|log|diff|show|branch|rev-parse|remote|stash\s+list|tag|ls-files|describe|reflog)\b",
+    # git read forms (added for ε_code compression; global options tolerated)
+    r"\bgit\s+(?:(?:-C\s+\S+|-c\s+\S+|--git-dir=\S+|--work-tree=\S+|--no-pager)\s+)*"
+    r"(status|log|diff|show|branch|rev-parse|remote|stash\s+list|tag|ls-files|describe|reflog)\b",
     r"\bls\b|\bcat\b|\bpwd\b|\bwhich\b|\bwg\b|\becho\b|\bdate\b",
     r"\bgrep\b|\brg\b|\bfind\b|\bwc\b|\bhead\b|\btail\b|\bjq\b",
     # print-only sed (no -i / --in-place): reads and prints, does not mutate
@@ -162,7 +178,7 @@ _OBSERVE_PREFIX_PATTERNS = (
     # ε_code compression — terminal read-only shapes (2026-09-12): status/version probes
     # and read subcommands that were UNKNOWN. Mutation checks run first, so `install`
     # (mutation) is never shadowed, and `omarchy <verb>` reads stay below its `set`/`pkg`.
-    r"\b(pstree|command\s+-v|which)\b",                                     # process-tree / which
+    r"\b(pstree|pgrep|command\s+-v|which)\b",                                # process-tree / pgrep / which
     r"\b[a-z0-9][\w./-]*\s+--version\b",                                   # <binary> --version probe
     r"\bhermes\s+(status|computer-use\s+doctor)\b",                        # hermes status/doctor
     r"\bhermes\s+cron\s+tick\b",                                          # cron tick (dispatcher, not mutate)
@@ -171,6 +187,15 @@ _OBSERVE_PREFIX_PATTERNS = (
     # bare read_file / sqlite3 SELECT via terminal (tool name leaked into shell)
     r"\bread_file\s+\S+\b",                                               # read_file <path>
     r"\bsqlite3\b[^|;&]*['\"]\s*SELECT\b",                               # sqlite3 <db> "SELECT ..."
+    # ε_code compression pass 4 (2026-09-14): shapes the a7 `code-regressing`
+    # alarm surfaced in the live residual — each carries recoverable intent and
+    # fires only after every mutation pattern above has failed (never shadows a
+    # mutation: `git -C <path> push` still matches the mutation git form first).
+    r"\btest\s+-",                                        # test -f/-d/... (pure condition)
+    r"\bdesktop-file-validate\b",                         # .desktop validation (read-only)
+    r"\bcryptsetup\s+(luksDump|status)\b",                # LUKS header/status read
+    r"\b(?:bash|sh|zsh)\s+\S*(?:selftest|/tests?/)\S*\.sh\b",  # test-script invocation
+    r"\bpython3?\s+\S+\s+--dry-run\b",                    # script declared no-mutation
     # ε_code compression — execute_code read-only shapes (2026-09-12): these fire only
     # AFTER every mutation pattern above has failed to match (mutation wins), so a blob
     # carrying e.g. `sqlite3.connect(..., mode=ro)` AND `f.write(...)` still classifies
@@ -304,6 +329,10 @@ def _selftest() -> int:
         ("terminal", {"command": "hyprctl configerrors/reload"}),
         ("execute_code", {"code": "from hermes_tools import patch, read_file; patch('a','b','c')"}),
         ("execute_code", {"code": "from hermes_tools import terminal, write_file; write_file('x','y')"}),
+        # ε_code compression pass 4 (2026-09-14): git global-option mutation forms
+        ("terminal", {"command": "git -C /mnt/projetos/Projetos/repos/aiguaratuba-local push origin main"}),
+        ("terminal", {"command": "git -C /srv/repo commit -m 'x'"}),
+        ("terminal", {"command": "sudo cryptsetup luksFormat /dev/sdb1"}),
     ]
     cases_observe: list[tuple[str, dict]] = [
         ("read_file", {"path": "/tmp/x"}),
@@ -357,6 +386,15 @@ def _selftest() -> int:
         ("terminal", {"command": "omarchy plugin list --json"}),
         ("terminal", {"command": "npm run typecheck --workspace apps/desktop"}),
         ("terminal", {"command": "read_file /home/lermf/.hermes/state/x.md"}),
+        # ε_code compression pass 4 (2026-09-14): shapes surfaced by the a7 alarm
+        ("terminal", {"command": "git -C /run/media/lermf/DADOS_STORAGE/@projetos/Projetos/repos/aiguaratuba-content-engine status --short"}),
+        ("terminal", {"command": "git -C /home/lermf/.hermes/hermes-agent log -1 --format='%H %s'"}),
+        ("terminal", {"command": "test -f package-lock.json"}),
+        ("terminal", {"command": "pgrep -a -f 'hermes|electron'"}),
+        ("terminal", {"command": "desktop-file-validate /home/lermf/.local/share/applications/hermes-workspace.desktop"}),
+        ("terminal", {"command": "bash /home/lermf/.hermes/tools/aig-mesh/test/selftest-cockpit-dry-run.sh"}),
+        ("terminal", {"command": "sudo cryptsetup luksDump /dev/nvme0n1p2 2>&1"}),
+        ("terminal", {"command": "cd /run/media/lermf/DADOS_STORAGE/@projetos/Projetos/repos/Elenhub-eco && python3 scripts/harness_failure_memory.py --dry-run"}),
     ]
     cases_unknown: list[tuple[str, dict]] = [
         ("terminal", {}),                       # no command evidence
@@ -364,6 +402,7 @@ def _selftest() -> int:
         ("terminal", {"command": "make all"}),  # unrecognized shape -> never guessed
         ("terminal", {"command": "python3 - <<'EOF'\nimport sqlite3\n# ambiguous inline\nEOF"}),
         ("terminal", {"command": "python3 /tmp/unknown_script.py"}),  # script w/o hint
+        ("terminal", {"command": "bash /tmp/unknown_script.sh"}),     # non-test script stays UNKNOWN
     ]
 
     fails: list[str] = []

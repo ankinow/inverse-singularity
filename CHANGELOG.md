@@ -6,6 +6,18 @@
 
 ---
 
+## v0.8.43 — 2026-09-14 — ε_code compression pass 4: the a7 `code-regressing` alarm answered — `git`/`test`/`pgrep`/`dry-run`/test-script shapes typed, live ε_code 135→108 (`action_typing_classifier.py`)
+
+The a7 boundary-trend watchdog (v0.8.34) fired its **first scheduled `code-regressing` alarm** — `ε_code=128→129` on the live series — and this release is the compression that alarm exists to provoke. The residual was re-measured against the live `state.db` (6,029 commands): the +1 was the tip of a cluster of shapes left UNKNOWN while their intent was recoverable.
+
+Seven shapes typed, each pinned by a selftest case: `git` invocations with **global options** (`git -C <path> status` / `log` never matched the `git <verb>` read forms — and, mirrored on the fail-safe side, `git -C <path> push|commit|…` now matches the mutation form too, closing a gap where a positioned mutation stayed untyped); the `test` builtin (`test -f`…); `pgrep` (joined `pstree`/`command -v`); `desktop-file-validate`; `cryptsetup luksDump|status` (with the state-changing `luks*` verbs added to the mutation side); test-script invocations (`bash|sh <…/test/…|selftest…>.sh`); and `python3 <script> --dry-run` (a declared no-mutation contract — the same rule `rsync --dry-run` has carried since v0.8.12). Mutation-first ordering is untouched: every observe shape fires only after all mutation patterns fail, and a non-test script (`bash /tmp/unknown_script.sh`) is pinned as staying UNKNOWN.
+
+**Measured effect (live, read-only): UNKNOWN 226 → 199 (−27); coverage 96.3% → 96.7%; the boundary probe's compressible bin ε_code 135 → 108 (−27) with ε_boundary flat at 91** — the entire compression landed on the compressible side it targets. Producer `session-scribe/action_typing.py` synced byte-identical (sha256 `1bf75c37…`); classifier selftest 29/49/5 → **32/57/6**.
+
+Honest scope notes: (1) the undecidable floor moved +8 (83→91) between the last series sample and this read — corpus growth accumulating opaque driver/script/ssh blobs, **not** produced by this change; the next scheduled sample (Mon 09:18) records both movements and the trend reader surfaces what it sees (report-only, by design). (2) The residual 199 remains dominated by genuinely-ambiguous driver blobs (interpreter invocations of unnamed scripts, `subprocess` payloads, ssh remotes) = the ε_boundary floor the never-guess wall does not move. Gates: classifier selftest PASS, coverage/probe re-reads above, py_compile all examples+framework OK, cargo test --release **40/40**, crate_identity OK (0.8.43), curiosity_lint INDEX_MATCH.
+
+---
+
 ## v0.8.42 — 2026-09-14 — the Goodhart safeguard itself audited: the κ/Q family's "read-only" claim measured, not asserted (`a10_goodhart_audit.py`)
 
 The κ Proliferation thread's 2026-06-13 dispatch named the hazard every instrument of the family has since preserved *structurally* but none had ever *audited*: *"The Q time-series is vulnerable to Goodhart drift. The moment Q shifts from diagnostic to prescriptive (a decision is made because the metric moved), the metric has captured the agent. … Open question: can a read-only metric stay read-only, or does signal availability inevitably bend behavior? Testable: run the time-series silently for a cycle, then audit whether any decision would have differed without it."* Every sampler and watchdog in the family appends and reports only — but "report-only" had been a property of the *code*, never a measurement of the *record*. This release turns it into a measurement.
