@@ -26,6 +26,7 @@ Usage:
 
 import os
 import json
+import hashlib
 import sqlite3
 import sys
 import argparse
@@ -56,17 +57,93 @@ SKILL_DIRS = [
 PLUGIN_DIR = os.path.expanduser("~/.hermes/plugins")
 
 
-def count_skills(skill_dirs=None):
-    """Count SKILL.md files, split active vs archived (dead κ)."""
+def root_identity(base):
+    """Stable per-root identity: normalized path + `dev:ino` (or absence).
+
+    The fingerprint's structural half. A root that is re-mounted, replaced by
+    a symlink to another tree, split into a distinct directory, or simply
+    removed changes its identity — which is exactly the event that makes two
+    samples incommensurable (the same failure class the toolsets/MCP rebase
+    demonstrated, caught then only because `ALTER TABLE` left NULLs behind).
+    """
+    base = os.path.abspath(os.path.expanduser(base))
+    if not os.path.isdir(base):
+        return "%s|absent" % base
+    try:
+        st = os.stat(base)
+        return "%s|%d:%d" % (base, st.st_dev, st.st_ino)
+    except OSError:
+        return "%s|unreadable" % base
+
+
+def roots_sha(skill_dirs=None):
+    """sha256 of the walked root-set definition (order-independent).
+
+    Recorded into every new sample so a *future* change of the metric's
+    definition is detectable structurally, instead of being remembered.
+    """
     dirs = skill_dirs if skill_dirs is not None else SKILL_DIRS
+    joined = "\n".join(sorted(root_identity(d) for d in dirs))
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+def _sha256_file(path):
+    h = hashlib.sha256()
+    try:
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except OSError:
+        return None
+
+
+def surface_detail(skill_dirs=None, hash_contents=True):
+    """Walk the roots and return the full surface record, not just counts.
+
+    Traversal contract (unchanged from `count_skills`): `os.walk` without
+    following symlinked directories, realpath-deduped. What is *added* is the
+    fidelity half — because a count is only a measurement insofar as its
+    definition is recorded:
+
+      * `roots_sha`         — the definition itself (root set + identities).
+      * `dup_content`       — byte-identical copies across roots: the same
+                              skill counted twice inflates φ without adding
+                              capability (measured, never pruned).
+      * `dup_path`          — same relative path under two roots (one name,
+                              two bodies): the name-level collision count.
+      * `symlink_dirs`      — symlinked dirs found in the walk (not descended).
+      * `out_of_root_links` — those pointing outside every root: their target
+                              content is *blind surface*, loaded by the runtime
+                              and structurally invisible to this metric.
+    """
+    dirs = skill_dirs if skill_dirs is not None else SKILL_DIRS
+    seen = set()
     active = 0
     archived = 0
     total_bytes = 0
-    seen = set()
+    hashes = {}
+    rel_by_root = {}
+    symlink_dirs = 0
+    out_of_root_links = 0
+    real_roots = [os.path.realpath(d) for d in dirs]
+
     for base in dirs:
         if not os.path.isdir(base):
             continue
-        for dirpath, _dirnames, filenames in os.walk(base):
+        rels = rel_by_root.setdefault(base, set())
+        for dirpath, dirnames, filenames in os.walk(base):
+            for d in list(dirnames):
+                p = os.path.join(dirpath, d)
+                if not os.path.islink(p):
+                    continue
+                symlink_dirs += 1
+                if not os.path.exists(p):
+                    continue
+                target = os.path.realpath(p)
+                if not any(target == r or target.startswith(r + os.sep)
+                           for r in real_roots):
+                    out_of_root_links += 1
             for f in filenames:
                 if f != "SKILL.md":
                     continue
@@ -81,9 +158,45 @@ def count_skills(skill_dirs=None):
                     pass
                 if ".archive" in fp:
                     archived += 1
-                else:
-                    active += 1
-    return active, archived, total_bytes, len(seen)
+                    continue
+                active += 1
+                rels.add(os.path.relpath(dirpath, base))
+                if hash_contents:
+                    h = _sha256_file(fp)
+                    if h:
+                        hashes.setdefault(h, 0)
+                        hashes[h] += 1
+
+    dup_content = sum(v - 1 for v in hashes.values() if v > 1) if hashes else 0
+    # Name-level collision: the same relative path under more than one root —
+    # one skill name, two bodies (or two copies under different bytes).
+    by_name = {}
+    for base, rels in rel_by_root.items():
+        for rel in rels:
+            by_name.setdefault(rel, []).append(base)
+    dup_path = sum(1 for owners in by_name.values() if len(owners) > 1)
+    return {
+        "active": active,
+        "archived": archived,
+        "total_bytes": total_bytes,
+        "unique": len(seen),
+        "roots_sha": roots_sha(dirs),
+        "dup_content": dup_content,
+        "dup_path": dup_path,
+        "symlink_dirs": symlink_dirs,
+        "out_of_root_links": out_of_root_links,
+    }
+
+
+def count_skills(skill_dirs=None):
+    """Count SKILL.md files, split active vs archived (dead κ).
+
+    Kept as the narrow 4-tuple contract for existing callers; the full surface
+    record (duplication, link topology, definition fingerprint) lives in
+    `surface_detail`, which this wraps without a second walk.
+    """
+    d = surface_detail(skill_dirs, hash_contents=False)
+    return d["active"], d["archived"], d["total_bytes"], d["unique"]
 
 
 def count_plugins(plugin_dir=None):
@@ -125,7 +238,9 @@ def count_mcp(hermes_bin="hermes"):
 
 def compute_sample(active, archived, plugins,
                    ts_enabled, ts_disabled, mcp_enabled, mcp_disabled,
-                   total_bytes, unique):
+                   total_bytes, unique, roots_sha_value=None,
+                   dup_content=None, dup_path=None,
+                   symlink_dirs=None, out_of_root_links=None):
     """Derive the κ/φ/Q record from raw counts (pure, no I/O)."""
     d = active                      # density = active loaded surface (skills)
     ts = (ts_enabled or 0) + (ts_disabled or 0)   # total toolsets
@@ -155,17 +270,30 @@ def compute_sample(active, archived, plugins,
         "kappa_eff": kappa_eff,
         "Q_raw": round(Q_raw, 6),
         "Q_eff": round(Q_eff, 6),
+        # The measurement's *definition* and its fidelity, recorded with the
+        # reading — a count whose definition is not in the row can silently
+        # change meaning between samples (exactly what seq7→seq8 did).
+        "roots_sha": roots_sha_value,
+        "dup_content": dup_content,
+        "dup_path": dup_path,
+        "symlink_dirs": symlink_dirs,
+        "out_of_root_links": out_of_root_links,
     }
 
 
 def sample(skill_dirs=None, plugin_dir=None, hermes_bin="hermes"):
-    active, archived, total_bytes, unique = count_skills(skill_dirs)
+    detail = surface_detail(skill_dirs, hash_contents=True)
     plugins = count_plugins(plugin_dir)
     ts_enabled, ts_disabled = count_toolsets(hermes_bin)
     mcp_enabled, mcp_disabled = count_mcp(hermes_bin)
-    return compute_sample(active, archived, plugins,
+    return compute_sample(detail["active"], detail["archived"], plugins,
                           ts_enabled, ts_disabled, mcp_enabled, mcp_disabled,
-                          total_bytes, unique)
+                          detail["total_bytes"], detail["unique"],
+                          roots_sha_value=detail["roots_sha"],
+                          dup_content=detail["dup_content"],
+                          dup_path=detail["dup_path"],
+                          symlink_dirs=detail["symlink_dirs"],
+                          out_of_root_links=detail["out_of_root_links"])
 
 
 def init_db(conn):
@@ -189,6 +317,16 @@ def init_db(conn):
     existing = {row[1] for row in conn.execute("PRAGMA table_info(samples)")}
     for col in ("toolsets_enabled", "toolsets_disabled",
                 "mcp_enabled", "mcp_disabled"):
+        if col not in existing:
+            conn.execute(f"ALTER TABLE samples ADD COLUMN {col} INTEGER")
+    # Migration: record the measurement's *definition* + fidelity per sample
+    # (v0.8.44). Pre-existing rows stay NULL, which downstream reads as
+    # "definition unrecorded" — an unknown, never a break by itself. A break
+    # requires *two recorded* definitions that disagree (same discipline as
+    # the a5 classifier's UNVERIFIED: absence is never an accusation).
+    if "roots_sha" not in existing:
+        conn.execute("ALTER TABLE samples ADD COLUMN roots_sha TEXT")
+    for col in ("dup_content", "dup_path", "symlink_dirs", "out_of_root_links"):
         if col not in existing:
             conn.execute(f"ALTER TABLE samples ADD COLUMN {col} INTEGER")
 
@@ -221,6 +359,12 @@ def init_db(conn):
                     "mcp_enabled", "mcp_disabled"):
             if col not in mig_existing:
                 conn.execute(f"ALTER TABLE samples ADD COLUMN {col} INTEGER")
+        if "roots_sha" not in mig_existing:
+            conn.execute("ALTER TABLE samples ADD COLUMN roots_sha TEXT")
+        for col in ("dup_content", "dup_path", "symlink_dirs",
+                    "out_of_root_links"):
+            if col not in mig_existing:
+                conn.execute(f"ALTER TABLE samples ADD COLUMN {col} INTEGER")
         # Copy any columns that exist in both, ordered by ts.
         dest = [row[1] for row in conn.execute("PRAGMA table_info(samples)")]
         shared = [c for c in cols if c in dest and c != "seq"]
@@ -242,13 +386,16 @@ def append(s, db_path=None):
         """INSERT INTO samples
            (ts, d_active, archived, plugins, unique_skills, skill_bytes,
             phi, kappa_raw, kappa_eff, Q_raw, Q_eff,
-            toolsets_enabled, toolsets_disabled, mcp_enabled, mcp_disabled)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            toolsets_enabled, toolsets_disabled, mcp_enabled, mcp_disabled,
+            roots_sha, dup_content, dup_path, symlink_dirs, out_of_root_links)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (s["ts"], s["d_active"], s["archived"], s["plugins"],
          s["unique_skills"], s["skill_bytes"], s["phi"],
          s["kappa_raw"], s["kappa_eff"], s["Q_raw"], s["Q_eff"],
          s.get("toolsets_enabled"), s.get("toolsets_disabled"),
-         s.get("mcp_enabled"), s.get("mcp_disabled")),
+         s.get("mcp_enabled"), s.get("mcp_disabled"),
+         s.get("roots_sha"), s.get("dup_content"), s.get("dup_path"),
+         s.get("symlink_dirs"), s.get("out_of_root_links")),
     )
     conn.commit()
     conn.close()
@@ -271,7 +418,8 @@ def _load_rows(db_path=None):
     conn = sqlite3.connect(path)
     rows = conn.execute(
         "SELECT seq, ts, d_active, archived, kappa_raw, kappa_eff, Q_raw, Q_eff, "
-        "toolsets_enabled, toolsets_disabled, mcp_enabled, mcp_disabled "
+        "toolsets_enabled, toolsets_disabled, mcp_enabled, mcp_disabled, "
+        "roots_sha, dup_content, dup_path, symlink_dirs, out_of_root_links "
         "FROM samples ORDER BY seq"
     ).fetchall()
     conn.close()
@@ -284,36 +432,59 @@ def show(db_path=None):
         print("empty series — run once to seed")
         return
     print(f"{'#':>3} {'ts':32} {'d':>4} {'arch':>5} {'κraw':>5} {'κeff':>5} "
-          f"{'Qraw':>8} {'Qeff':>8} {'ts:on/off':>9} {'mcp:on/off':>10}")
+          f"{'Qraw':>8} {'Qeff':>8} {'ts:on/off':>9} {'mcp:on/off':>10} {'roots':>8}")
     for r in rows:
         ts_on = f"{r[8]}/{r[9]}" if r[8] is not None else "-"
         mcp_on = f"{r[10]}/{r[11]}" if r[10] is not None else "-"
+        rsha = r[12][:8] if len(r) > 12 and r[12] else "-"
         print(f"{r[0]:>3} {r[1]:32} {r[2]:>4} {r[3]:>5} {r[4]:>5} {r[5]:>5} "
-              f"{r[6]:>8.5f} {r[7]:>8.5f} {ts_on:>9} {mcp_on:>10}")
+              f"{r[6]:>8.5f} {r[7]:>8.5f} {ts_on:>9} {mcp_on:>10} {rsha:>8}")
 
 
 def _kappa_def_fingerprint(r):
     """
     Fingerprint of the κ-definition a sample was measured under.
 
-    The κ terms grew over time (skills → +plugins → +toolsets → +MCP), so two
-    samples can disagree on `kappa_raw`/`kappa_eff` for *definitional* reasons
-    (the metric got a new term) rather than *proliferation* (the runtime truly
-    accumulated capability). Those are different diseases with the same
-    symptom (κ rising), and the trend reader must not conflate them.
+    Two things can make two samples incommensurable:
 
-    A sample measured before toolsets/MCP entered κ has NULL in those columns
-    (the ALTER TABLE migration left pre-term rows NULL). A NULL toolsets field
-    therefore marks the *old* definition; a non-NULL marks the *new*. This is
-    a structural signal already in the data — no new column needed.
+    1. The **κ terms** grew (skills → +plugins → +toolsets → +MCP). A sample
+       measured before toolsets/MCP entered κ has NULL in those columns (the
+       ALTER TABLE migration left pre-term rows NULL); non-NULL marks the new
+       definition. Structural signal already in the data.
+    2. The **root set** the skill surface was walked over moved — recorded as
+       `roots_sha` (root paths + identity) from v0.8.44 on. Rows before that
+       are NULL: an *unrecorded* definition.
+
+    Returns (term_definition, roots_sha_or_None). A NULL `roots_sha` is an
+    unknown, never evidence of a change — only two *recorded* definitions that
+    disagree constitute a break (the a5 classifier's UNVERIFIED discipline:
+    absence is never an accusation).
     """
     if isinstance(r, tuple):
         # tuple layout: (seq, ts, d_active, archived, kappa_raw, kappa_eff,
-        #                Q_raw, Q_eff, ts_en, ts_dis, mcp_en, mcp_dis)
+        #                Q_raw, Q_eff, ts_en, ts_dis, mcp_en, mcp_dis, roots_sha…)
         ts_en = r[8]
+        rsha = r[12] if len(r) > 12 else None
     else:
         ts_en = r.get("toolsets_enabled")
-    return "with-toolsets-mcp" if ts_en is not None else "pre-toolsets-mcp"
+        rsha = r.get("roots_sha")
+    term = "with-toolsets-mcp" if ts_en is not None else "pre-toolsets-mcp"
+    return term, rsha
+
+
+def _same_definition(a, b):
+    """Are two fingerprints the SAME measurement definition?
+
+    Term-definition mismatch is always a change. The root-set half only counts
+    when BOTH sides recorded one — an unrecorded row cannot be compared (and a
+    backfill must not fabricate an epoch boundary, which would silently mute the
+    live collapse verdict on the current series).
+    """
+    if a[0] != b[0]:
+        return False
+    if a[1] and b[1]:
+        return a[1] == b[1]
+    return True
 
 
 def _definitional_breaks(rows):
@@ -331,9 +502,9 @@ def _definitional_breaks(rows):
     prev = _kappa_def_fingerprint(rows[0])
     for i in range(1, len(rows)):
         cur = _kappa_def_fingerprint(rows[i])
-        if cur != prev:
+        if not _same_definition(cur, prev):
             breaks.append(i + 1)
-            prev = cur
+        prev = cur
     return breaks
 
 
@@ -498,8 +669,11 @@ _SET_DB = None
 def _selftest():
     import tempfile
 
+    passed = []
+
     def check(name, cond):
         assert cond, name
+        passed.append(name)
 
     # 1. canonical φ/κ math (thread's own canonical demo d=0.85,c=0.31 resident)
     #    → here use a synthetic active=1 (φ=ln2≈0.6931) with κ_raw=10.
@@ -648,8 +822,107 @@ def _selftest():
         rc5 = check_trend(db_path=td)
         check("check error rc2", rc5 == 2)
 
+    # 16-18. root-set definition (v0.8.44): a NULL→recorded transition is a
+    #        BACKFILL, not a break — otherwise merely starting to record the
+    #        definition would reset the epoch and silently mute the live
+    #        collapse verdict. Only two RECORDED definitions that disagree
+    #        start a new epoch (absence is never an accusation).
+    backfill_rows = [
+        (1, "t1", 0, 0, 615, 408, 0.0095, 0.0144, 24, 9, 4, 1, None),
+        (2, "t2", 0, 0, 615, 408, 0.0095, 0.0144, 24, 9, 4, 1, None),
+        (3, "t3", 0, 0, 615, 408, 0.0095, 0.0144, 24, 9, 4, 1, "a" * 64),
+    ]
+    check("backfill is not a break",
+          _definitional_breaks(backfill_rows) == [1])
+
+    moved_rows = [
+        (1, "t1", 0, 0, 615, 408, 0.0095, 0.0144, 24, 9, 4, 1, "a" * 64),
+        (2, "t2", 0, 0, 615, 408, 0.0095, 0.0144, 24, 9, 4, 1, "a" * 64),
+        (3, "t3", 0, 0, 615, 408, 0.0095, 0.0144, 24, 9, 4, 1, "b" * 64),
+    ]
+    check("recorded→different recorded IS a break",
+          _definitional_breaks(moved_rows) == [1, 3])
+    check("same recorded definition holds the epoch",
+          _definitional_breaks(moved_rows[:2]) == [1])
+    # ...and a break still cannot be inferred across an unrecorded row.
+    gap_rows = [
+        (1, "t1", 0, 0, 615, 408, 0.0095, 0.0144, 24, 9, 4, 1, "a" * 64),
+        (2, "t2", 0, 0, 615, 408, 0.0095, 0.0144, 24, 9, 4, 1, None),
+        (3, "t3", 0, 0, 615, 408, 0.0095, 0.0144, 24, 9, 4, 1, "b" * 64),
+    ]
+    check("no break across an unrecorded row",
+          _definitional_breaks(gap_rows) == [1])
+
+    # 19. roots_sha: order-independent, set-sensitive, identity-sensitive.
+    with tempfile.TemporaryDirectory() as td:
+        ra = os.path.join(td, "ra")
+        rb = os.path.join(td, "rb")
+        os.makedirs(ra)
+        os.makedirs(rb)
+        check("roots_sha order-independent", roots_sha([ra, rb]) == roots_sha([rb, ra]))
+        check("roots_sha set-sensitive", roots_sha([ra, rb]) != roots_sha([ra]))
+        absent = os.path.join(td, "nope")
+        check("roots_sha marks absence",
+              roots_sha([absent]) != roots_sha([ra]))
+
+    # 20. surface_detail: the fidelity half is measured, not assumed —
+    #     byte-identical copies, name collisions, link topology, and the
+    #     invariant that the walk's deduped total equals active+archived.
+    with tempfile.TemporaryDirectory() as td:
+        ra = os.path.join(td, "r1")
+        rb = os.path.join(td, "r2")
+        outside = os.path.join(td, "ext", "skill-x")
+        for d in (os.path.join(ra, "a"), os.path.join(rb, "b"),
+                  os.path.join(rb, "a"), outside):
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, "SKILL.md"), "w") as fh:
+                fh.write("body-A" if d.endswith(("a", "skill-x")) else "body-B")
+        arch = os.path.join(ra, ".archive", "old")
+        os.makedirs(arch)
+        with open(os.path.join(arch, "SKILL.md"), "w") as fh:
+            fh.write("dead")
+        os.symlink(outside, os.path.join(ra, "link-out"))
+        os.symlink(os.path.join(rb, "b"), os.path.join(ra, "link-in"))
+
+        detail = surface_detail([ra, rb])
+        check("surface: dup_content counts the byte-identical pair",
+              detail["dup_content"] == 1)
+        check("surface: dup_path counts the shared name", detail["dup_path"] == 1)
+        check("surface: archived classified", detail["archived"] == 1)
+        check("surface: active counted", detail["active"] == 3)
+        check("surface: unique == active+archived",
+              detail["unique"] == detail["active"] + detail["archived"])
+        check("surface: symlink dirs inventoried", detail["symlink_dirs"] == 2)
+        check("surface: out-of-root link flagged",
+              detail["out_of_root_links"] == 1)
+        check("surface: definition recorded",
+              detail["roots_sha"] == roots_sha([ra, rb]))
+
+        # 21. the record carries its own definition + fidelity (the wiring that
+        #     makes a future redefinition detectable instead of remembered).
+        rec = compute_sample(detail["active"], detail["archived"], 0,
+                             0, 0, 0, 0, detail["total_bytes"], detail["unique"],
+                             roots_sha_value=detail["roots_sha"],
+                             dup_content=detail["dup_content"],
+                             dup_path=detail["dup_path"],
+                             symlink_dirs=detail["symlink_dirs"],
+                             out_of_root_links=detail["out_of_root_links"])
+        for k in ("roots_sha", "dup_content", "dup_path", "symlink_dirs",
+                  "out_of_root_links"):
+            check(f"record carries {k}", rec.get(k) is not None)
+
+        # 22. roundtrip: the new fields survive append → _load_rows (indices
+        #     12..16), so an epoch's definition is readable from the series.
+        db = os.path.join(td, "roundtrip.sqlite")
+        append(rec, db_path=db)
+        rows = _load_rows(db_path=db)
+        check("roundtrip roots_sha at index 12", rows[0][12] == detail["roots_sha"])
+        check("roundtrip dup_content at index 13", rows[0][13] == 1)
+        check("roundtrip fingerprint reads it",
+              _kappa_def_fingerprint(rows[0])[1] == detail["roots_sha"])
+
     print(json.dumps({"schema": "kappa-trend-selftest",
-                      "passed": 15, "ok": True}, ensure_ascii=False))
+                      "passed": len(passed), "ok": True}, ensure_ascii=False))
     return 0
 
 
