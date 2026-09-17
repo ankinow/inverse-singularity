@@ -18,3 +18,6 @@ framework/__pycache__/
 __pycache__/
 *.pyc
 /data/
+
+# graphify AST graph artifacts (Layer-4 retrieval; regenerate with `graphify update .`)
+graphify-out/
