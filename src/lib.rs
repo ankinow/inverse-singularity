@@ -34,6 +34,9 @@
 /// which deadline, such that delegation increases Q instead of κ.
 pub mod gateway;
 
+/// Compile-time constraint priming (zero deps, no dyn).
+pub mod priming;
+
 // ────────────────────────────────────────────────────────────────
 //   §1 — The three primitive transformations
 // ────────────────────────────────────────────────────────────────
