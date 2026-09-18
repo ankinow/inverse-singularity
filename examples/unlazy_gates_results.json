@@ -1,0 +1,248 @@
+{
+  "problems": [
+    {
+      "id": "gsm8k_1",
+      "question": "Natalia sold 48 clips in April. Then she sold 17 more clips in May. How many clips did Natalia sell altogether in April and May?",
+      "answer": "65"
+    },
+    {
+      "id": "gsm8k_2",
+      "question": "Weng earns $12 for cleaning bedrooms. Weng cleaned 3 bedrooms yesterday. How much money did Weng earn yesterday?",
+      "answer": "36"
+    },
+    {
+      "id": "gsm8k_3",
+      "question": "Betty is saving money for a new wallet that costs $100. Betty has $30 already. How much more money does Betty need to save to buy the wallet?",
+      "answer": "70"
+    }
+  ],
+  "thresholds": [
+    0.5,
+    0.7,
+    0.9
+  ],
+  "trials": [
+    {
+      "threshold": 0.5,
+      "problem_results": [
+        {
+          "id": "gsm8k_1",
+          "question": "Natalia sold 48 clips in April. Then she sold 17 more clips in May. How many clips did Natalia sell altogether in April and May?",
+          "expected": "65",
+          "mode": "DEEP",
+          "confidence": 0.95,
+          "uncertainty_high": false,
+          "steps": [
+            "[Deep Reasoning Mode]",
+            "Extracted numbers: ['48', '17']",
+            "Determined operation: addition (more/altogether/total)",
+            "Computed addition: 48 + 17 = 65",
+            "Final answer: 65",
+            "Verification: second pass matched"
+          ],
+          "token_estimate": 61,
+          "final_answer": "65",
+          "correct": true,
+          "notes": "Verified chain-of-table (confidence 0.36 < threshold 0.5)"
+        },
+        {
+          "id": "gsm8k_2",
+          "question": "Weng earns $12 for cleaning bedrooms. Weng cleaned 3 bedrooms yesterday. How much money did Weng earn yesterday?",
+          "expected": "36",
+          "mode": "COT_ASSERT",
+          "confidence": 0.54,
+          "uncertainty_high": true,
+          "steps": [
+            "[CoT + $ASSERT Mode]",
+            "Extracted numbers: ['12', '3']",
+            "Determined operation: multiplication (earn/cost/price)",
+            "Computed multiplication: 12 * 3 = 36",
+            "Final answer: 36",
+            "$ASSERT{condition: \"answer 36 is correct\", confidence: 0.54, source: \"chain-of-table\"}"
+          ],
+          "token_estimate": 33,
+          "final_answer": "36",
+          "correct": true,
+          "notes": "Chain-of-table with assertion (confidence 0.54 >= threshold but uncertainty_high)"
+        },
+        {
+          "id": "gsm8k_3",
+          "question": "Betty is saving money for a new wallet that costs $100. Betty has $30 already. How much more money does Betty need to save to buy the wallet?",
+          "expected": "70",
+          "mode": "DEEP",
+          "confidence": 0.95,
+          "uncertainty_high": false,
+          "steps": [
+            "[Deep Reasoning Mode]",
+            "Extracted numbers: ['100', '30']",
+            "Determined operation: addition (more/altogether/total)",
+            "Computed addition: 100 + 30 = 130",
+            "Final answer: 130",
+            "Verification: second pass matched"
+          ],
+          "token_estimate": 61,
+          "final_answer": "130",
+          "correct": false,
+          "notes": "Verified chain-of-table (confidence 0.2 < threshold 0.5)"
+        }
+      ],
+      "summary": {
+        "total_correct": 2,
+        "total_tokens": 155,
+        "mode_counts": {
+          "DEEP": 2,
+          "COT_ASSERT": 1,
+          "SHORTCUT": 0
+        }
+      }
+    },
+    {
+      "threshold": 0.7,
+      "problem_results": [
+        {
+          "id": "gsm8k_1",
+          "question": "Natalia sold 48 clips in April. Then she sold 17 more clips in May. How many clips did Natalia sell altogether in April and May?",
+          "expected": "65",
+          "mode": "DEEP",
+          "confidence": 0.95,
+          "uncertainty_high": false,
+          "steps": [
+            "[Deep Reasoning Mode]",
+            "Extracted numbers: ['48', '17']",
+            "Determined operation: addition (more/altogether/total)",
+            "Computed addition: 48 + 17 = 65",
+            "Final answer: 65",
+            "Verification: second pass matched"
+          ],
+          "token_estimate": 61,
+          "final_answer": "65",
+          "correct": true,
+          "notes": "Verified chain-of-table (confidence 0.36 < threshold 0.7)"
+        },
+        {
+          "id": "gsm8k_2",
+          "question": "Weng earns $12 for cleaning bedrooms. Weng cleaned 3 bedrooms yesterday. How much money did Weng earn yesterday?",
+          "expected": "36",
+          "mode": "DEEP",
+          "confidence": 0.95,
+          "uncertainty_high": false,
+          "steps": [
+            "[Deep Reasoning Mode]",
+            "Extracted numbers: ['12', '3']",
+            "Determined operation: multiplication (earn/cost/price)",
+            "Computed multiplication: 12 * 3 = 36",
+            "Final answer: 36",
+            "Verification: second pass matched"
+          ],
+          "token_estimate": 61,
+          "final_answer": "36",
+          "correct": true,
+          "notes": "Verified chain-of-table (confidence 0.54 < threshold 0.7)"
+        },
+        {
+          "id": "gsm8k_3",
+          "question": "Betty is saving money for a new wallet that costs $100. Betty has $30 already. How much more money does Betty need to save to buy the wallet?",
+          "expected": "70",
+          "mode": "DEEP",
+          "confidence": 0.95,
+          "uncertainty_high": false,
+          "steps": [
+            "[Deep Reasoning Mode]",
+            "Extracted numbers: ['100', '30']",
+            "Determined operation: addition (more/altogether/total)",
+            "Computed addition: 100 + 30 = 130",
+            "Final answer: 130",
+            "Verification: second pass matched"
+          ],
+          "token_estimate": 61,
+          "final_answer": "130",
+          "correct": false,
+          "notes": "Verified chain-of-table (confidence 0.2 < threshold 0.7)"
+        }
+      ],
+      "summary": {
+        "total_correct": 2,
+        "total_tokens": 183,
+        "mode_counts": {
+          "DEEP": 3,
+          "COT_ASSERT": 0,
+          "SHORTCUT": 0
+        }
+      }
+    },
+    {
+      "threshold": 0.9,
+      "problem_results": [
+        {
+          "id": "gsm8k_1",
+          "question": "Natalia sold 48 clips in April. Then she sold 17 more clips in May. How many clips did Natalia sell altogether in April and May?",
+          "expected": "65",
+          "mode": "DEEP",
+          "confidence": 0.95,
+          "uncertainty_high": false,
+          "steps": [
+            "[Deep Reasoning Mode]",
+            "Extracted numbers: ['48', '17']",
+            "Determined operation: addition (more/altogether/total)",
+            "Computed addition: 48 + 17 = 65",
+            "Final answer: 65",
+            "Verification: second pass matched"
+          ],
+          "token_estimate": 61,
+          "final_answer": "65",
+          "correct": true,
+          "notes": "Verified chain-of-table (confidence 0.36 < threshold 0.9)"
+        },
+        {
+          "id": "gsm8k_2",
+          "question": "Weng earns $12 for cleaning bedrooms. Weng cleaned 3 bedrooms yesterday. How much money did Weng earn yesterday?",
+          "expected": "36",
+          "mode": "DEEP",
+          "confidence": 0.95,
+          "uncertainty_high": false,
+          "steps": [
+            "[Deep Reasoning Mode]",
+            "Extracted numbers: ['12', '3']",
+            "Determined operation: multiplication (earn/cost/price)",
+            "Computed multiplication: 12 * 3 = 36",
+            "Final answer: 36",
+            "Verification: second pass matched"
+          ],
+          "token_estimate": 61,
+          "final_answer": "36",
+          "correct": true,
+          "notes": "Verified chain-of-table (confidence 0.54 < threshold 0.9)"
+        },
+        {
+          "id": "gsm8k_3",
+          "question": "Betty is saving money for a new wallet that costs $100. Betty has $30 already. How much more money does Betty need to save to buy the wallet?",
+          "expected": "70",
+          "mode": "DEEP",
+          "confidence": 0.95,
+          "uncertainty_high": false,
+          "steps": [
+            "[Deep Reasoning Mode]",
+            "Extracted numbers: ['100', '30']",
+            "Determined operation: addition (more/altogether/total)",
+            "Computed addition: 100 + 30 = 130",
+            "Final answer: 130",
+            "Verification: second pass matched"
+          ],
+          "token_estimate": 61,
+          "final_answer": "130",
+          "correct": false,
+          "notes": "Verified chain-of-table (confidence 0.2 < threshold 0.9)"
+        }
+      ],
+      "summary": {
+        "total_correct": 2,
+        "total_tokens": 183,
+        "mode_counts": {
+          "DEEP": 3,
+          "COT_ASSERT": 0,
+          "SHORTCUT": 0
+        }
+      }
+    }
+  ]
+}
