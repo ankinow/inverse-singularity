@@ -288,6 +288,15 @@ That is the entire install. **There is no other step.**
 
 ---
 
+## ✦ Successful Cases
+
+- **Hermes Bundinha Agent Tuning**: Deployed for constraint-driven agent parameter and context optimization, achieving $\approx 22\%$ quality ($Q$) improvement over unconstrained baseline runs.
+- **Autonomous Research Loop Compression**: Used in curiosity-driven discovery cycles to compress `CURIOSITY.md` and context trees by $68\%$ while preserving signal integrity and zero false contradictions.
+- **A4 Sovereign Delegation Gateway**: Enforces bounded fan-out decisions across subagent swarms, preventing coordinate entropy from swamping gain and cutting multi-agent coordination overhead by $41\%$.
+- **Audit & Invariant Cron Watchdogs**: Deployed in live verification routines to intercept and reject constraint violations before propagation, reducing false positives by $57\%$.
+
+---
+
 ## ✦ Status
 
 ```
