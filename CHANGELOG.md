@@ -6,6 +6,12 @@
 
 ---
 
+## Unreleased — 2026-09-29 — A8 cumulative-source validity and report delivery
+
+A8 v2 trends interval honesty/action deltas between comparable cumulative snapshots, hashes closed dated diary files with SHA-256, and classifies changed or legacy-incomparable evidence as `DRIFT`, never erosion. `ALARM` requires at least three comparable monotone-declining intervals. The joint reader carries A8 source status and treats unverified evidence as unevaluable. Both report markers use the watchdog's reportable rc 1 contract; the wrapper delivers the marker, ledgers it, and returns cron-success. A8 and joint synthetic selftests pass; isolated live wrapper verification delivered `DRIFT` to a temporary ledger.
+
+---
+
 ## v0.8.44 — 2026-09-15 — the κ metric's own definition gets recorded: a root-scope audit + `roots_sha` pinned in every sample (`kappa_surface_audit.py`, `kappa_proliferation_timeseries.py`)
 
 The κ thread left one honest flag open on its own biggest reading — the series step **seq7→seq8: `d_active` 355 → 2,901 (κ_raw 615 → 3,323, Q_eff 0.014399 → 0.002708)**. The note said *"the 355→2,901 step coincides with the two skill roots now being distinct trees … so part of the step may be measurement scope rather than gradual accumulation — confirming the count is not duplicated is the first step of the human κ-reduction decision this alarm hands over."* This release does that confirmation — read-only, structurally — and pins the measurement's definition so the same class of blindness cannot recur silently.
@@ -127,6 +133,8 @@ The ε thread's deepest face — *"does ε = 0 violate A4, or does it mean the s
 This release closes that gap by the identical sibling discipline: `examples/a8_epsilon_system_trend.py` (stdlib, zero-dep, read-only) **imports** `parse_dir`/`compute`/`verdict` from `a6_epsilon_probe` (single source, no drift), appends one row per sample to `data/a8_epsilon_system_trend.sqlite` (append-only `seq AUTOINCREMENT`), and `--trend` (`schema a8-epsilon-system-trend/v1`) reads the *honesty count* (the raw ε_system numerator) and reports **`sovereignty-eroding`** only on a genuine monotone fall past the healthiest (highest) point — the SS7 under-report going to scale — and **`sovereignty-rising`** (healthy) only on a monotone rise; abstains <2. `--check` is the scheduled-consumer form (silent on `sovereignty-stable`/`rising`/`abstain`; `ALARM:` + exit 1 on the erosion verdict). The verdict is keyed on the **count**, not the fraction — ε_system = honesty/typed, so the fraction falls whenever the agent types more (denominator grows) even with equal residue; keying on the fraction would fabricate erosion for a pure typing-volume increase (the same compressible mis-read the κ thread and boundary trend each caught). Backed by a weekly no-agent sampler (`19 9 * * 1`) + watchdog (`36 9 * * 1`, after the sampler, before the 09:47 joint watchdog) via `~/.hermes/scripts/a8-epsilon-system-trend-{weekly-sampler,watchdog}.sh`.
 
 **First live sample (2026-09-14, 7,141 typed actions): honesty 140, ε_system 0.0196, ε_code 1.0648 → SOVEREIGN-CODE** — the sovereignty term is now *tended* (its movement toward zero becomes a visible `eroding` signal), not just read at a point. Selftest 13/13; the Goodhart safeguard is structural and identical to its siblings: the instrument samples-and-appends only, never coaxes a mark (a mark emitted to satisfy this metric would itself be a mirrored constraint per the Boundary Paradox), so the only honest consumer is the alarm, never the feedback loop.
+
+
 
 ---
 

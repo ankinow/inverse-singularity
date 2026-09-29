@@ -137,3 +137,8 @@ Open question: does ε = 0 violate A4, or does it mean the system was never sove
 **Salience:** HIGH
 **Status: CLOSED (empirical, N=1 aggregate + fixed-point check)**
 [Compressed: thread resolved]
+
+### A8 ε_system trend — cumulative-source validity (2026-09-29)
+**Finding:** the v1 trend treated a fall in whole-diary honesty counts as behavioral erosion. The stored series contradicts that interpretation: seq 6→7 has typed actions 12,449→12,735 (+286) while honesty marks fall 93→74 (-19); the live A6 scan is 13,356 typed / 68 honesty. This proves the sampled corpus/counts are not monotone, but does not identify whether diary rotation, rewriting, or marker removal caused it (legacy samples had no file inventory). A cumulative total is not a per-period rate.
+**Fix:** `examples/a8_epsilon_system_trend.py` v2 derives interval honesty/action rates, hashes closed dated diary files in new samples, resets/abstains on legacy or changed evidence, and reports `source-incomparable` as `DRIFT`, not as sovereignty erosion. The instrument returns reportable rc 1 so the canonical `watchdog_surface` delivers and ledgers the marker as cron-success; `DRIFT` remains distinct from `ALARM`. A real erosion alarm now requires three comparable monotone-declining interval rates. `axiom_joint_trend.py` now carries A8 source status and surfaces `DRIFT`/unevaluable instead of silently treating that face as healthy. No agent behavior is coerced.
+**Verification:** pre-fix --check alarmed on 2026-09-29; post-fix --trend reports `source-incomparable` (legacy cumulative count decreased, seq 6→7); A8 and joint selftests PASS; `cargo test` 42/42.

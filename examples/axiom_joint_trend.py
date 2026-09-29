@@ -24,7 +24,7 @@ healthy runtime compresses ε_code (UNKNOWN% → 0, never guessing) **without** 
 This instrument **imports each sibling's own low-level surface** (single source of truth,
 never re-implements a measure) and reports the joint read:
 
-  * `--trend` (`schema axiom-joint-trend/v1`) loads all seven faces and emits a **`joint`
+  * `--trend` (`schema axiom-joint-trend/v2`) loads all seven faces and emits a **`joint`
     verdict**. Beyond the three original single-face trade-offs it carries the cross-face
     CONTRADICTIONS the four newer series made possible — each of which the three-face
     reader silently called healthy, because it never looked at those faces:
@@ -64,10 +64,9 @@ Modes:
   * `--trend`    (default) — print the full JSON joint read, exit 0 always.
   * `--check`    — report-only read: **silent** (exit 0) on a healthy joint verdict
     (`compress-coherent` / `stable` / `self-bloat` / `abstain`), and prints a compact
-    `ALARM:` line + the JSON and exits 1 on the five alarm verdicts. The exit code is a
-    *reporting* mechanism (so a cron delivery surfaces the alarm), NOT a gate on any
-    action — nothing edits, prunes, or prescribes (the same contract as
-    `a5_constraint_provenance.py --check`).
+    `ALARM:` line + JSON and exits 1 on the five alarm verdicts. An unverified ε_system
+    source emits `DRIFT:` + JSON with reportable exit 1; the outer watchdog delivers it
+    as cron-success. The marker keeps drift distinct from alarm; neither path gates action.
   * `--selftest` — prove the fire/abstain logic on synthetic series; exits non-zero on
     failure.
 """
@@ -94,7 +93,7 @@ import a8_epsilon_system_trend as esys  # noqa: E402
 import a9_claim_evidence_trend as clmt  # noqa: E402
 import a4_action_typing_trend as atyped  # noqa: E402
 
-SCHEMA = "axiom-joint-trend/v1"
+SCHEMA = "axiom-joint-trend/v2"
 
 # The joint verdicts a report-only watchdog should surface. Everything else
 # (`compress-coherent`, `stable`, `self-bloat`, `abstain`) is a healthy read and stays
@@ -132,8 +131,8 @@ KNOWN_FLAGS = ("--trend", "--check", "--selftest", "--help", "-h")
 USAGE = """axiom_joint_trend — joint read of the seven Q = φ/κ + ε trend series (read-only)
 
   --trend      (default) print the joint JSON read (exit 0 always)
-  --check      report-only: SILENT (exit 0) on a healthy verdict; prints the ALARM line
-               + JSON and exits 1 on any of the five alarm verdicts
+  --check      report-only: ALARM/DRIFT payload + reportable exit 1; silent on a
+               fully readable healthy result (outer watchdog maps reports to cron-success)
   --selftest   prove the fire/abstain logic on synthetic series (exit 0/1)
   --help, -h   this text (exit 0)
 
@@ -233,9 +232,12 @@ def _esys_face(db=ESYS_DB):
     return {
         "verdict": r.get("verdict", "abstain"),
         "samples": r.get("samples", 0),
+        "source_status": r.get("source_status"),
         "evidence": {"last_honesty": r.get("last_honesty"),
                      "delta_honesty": r.get("delta_honesty"),
-                     "last_eps_system": r.get("last_eps_system")},
+                     "last_eps_system": r.get("last_eps_system"),
+                     "source_status": r.get("source_status"),
+                     "comparable_intervals": r.get("comparable_intervals")},
     }
 
 
@@ -293,15 +295,16 @@ def _resolve(reads):
       7 `compress-coherent`       ε_code compressing with κ held    (healthy)
       8 `stable`                  nothing moving
 
-    A candidate whose legs are below 2 samples is *unevaluable*: it is listed and can
-    never fire, but is never folded into "healthy". `abstain` is reserved for the two
-    compressible-term faces (ε_code, κ) being unreadable — without them there is no
-    headline to give.
+    A candidate whose legs are sparse or whose source is unverified is *unevaluable*:
+    it is listed and can never fire, but is never folded into "healthy". `abstain` is
+    reserved for the two compressible-term faces (ε_code, κ) being unreadable.
     """
     verdicts = {f: reads[f]["verdict"] for f in FACE_ORDER}
     samples = {f: reads[f]["samples"] for f in FACE_ORDER}
-    sparse = [f for f in FACE_ORDER if samples[f] < 2]
-    usable = {f: samples[f] >= 2 for f in FACE_ORDER}
+    unverified = {"source-incomparable", "baseline-required", "no-new-actions"}
+    sparse = [f for f in FACE_ORDER
+              if samples[f] < 2 or reads[f].get("source_status") in unverified]
+    usable = {f: f not in sparse for f in FACE_ORDER}
 
     v = verdicts
     candidates = (
@@ -361,6 +364,7 @@ def trend(eps_db=EPS_DB, kap_db=KAPPA_DB, ckap_db=CKAPPA_DB, bnd_db=BND_DB,
         "schema": SCHEMA,
         "samples": {f: reads[f]["samples"] for f in FACE_ORDER},
         "verdicts": {f: reads[f]["verdict"] for f in FACE_ORDER},
+        "source_statuses": {f: reads[f].get("source_status") for f in FACE_ORDER},
         "joint_verdict": verdict,
         "detail": detail,
         "sparse": sparse,
@@ -369,15 +373,22 @@ def trend(eps_db=EPS_DB, kap_db=KAPPA_DB, ckap_db=CKAPPA_DB, bnd_db=BND_DB,
 
 
 def _check(out, stream=sys.stdout):
-    """Report-only watchdog body: returns an exit code, prints only on alarm."""
+    """Report-only watchdog body: prints ALARM or DRIFT; neither path gates action."""
     verdict = out["joint_verdict"]
-    if verdict not in ALARM_VERDICTS:
-        return 0
-    legs = out.get("detail", {}).get("legs", {})
-    stream.write("ALARM: %s (%s)\n"
-                 % (verdict, " ".join("%s=%s" % (k, val) for k, val in legs.items())))
-    stream.write(json.dumps(out, indent=2) + "\n")
-    return 1
+    if verdict in ALARM_VERDICTS:
+        legs = out.get("detail", {}).get("legs", {})
+        stream.write("ALARM: %s (%s)\n"
+                     % (verdict, " ".join("%s=%s" % (k, val) for k, val in legs.items())))
+        stream.write(json.dumps(out, indent=2) + "\n")
+        return 1
+    statuses = out.get("source_statuses", {})
+    drift = {face: status for face, status in statuses.items()
+             if status in {"source-incomparable", "baseline-required", "no-new-actions"}}
+    if drift:
+        stream.write("DRIFT: one or more evidence faces are not comparable\n")
+        stream.write(json.dumps(out, indent=2) + "\n")
+        return 1
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -463,15 +474,20 @@ def _seed_bnd(path, code_counts, bound_counts, total=5000):
     con.close()
 
 
-def _seed_esys(path, honesty, typed=7151):
+def _seed_esys(path, honesty, typed=None):
+    if typed is None:
+        typed = [7151] * len(honesty)
     con = sqlite3.connect(path)
     con.execute("CREATE TABLE samples (seq INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT,"
                 " typed INTEGER, untyped_ambiguous INTEGER, mislabels INTEGER,"
-                " honesty INTEGER, eps_code REAL, eps_system REAL, probe_verdict TEXT)")
-    for i, h in enumerate(honesty):
+                " honesty INTEGER, eps_code REAL, eps_system REAL, probe_verdict TEXT,"
+                " source_manifest TEXT)")
+    for i, (h, t) in enumerate(zip(honesty, typed)):
         con.execute("INSERT INTO samples (ts,typed,untyped_ambiguous,mislabels,honesty,"
-                    "eps_code,eps_system,probe_verdict) VALUES (?,?,?,?,?,?,?,?)",
-                    ("t%d" % i, typed, 6000, 30, h, 1.32, h / float(typed), "SOVEREIGN"))
+                    "eps_code,eps_system,probe_verdict,source_manifest) "
+                    "VALUES (?,?,?,?,?,?,?,?,?)",
+                    ("t%d" % i, t, 6000, 30, h, 1.32, h / float(t), "SOVEREIGN",
+                     '{"2026-01-01":"%s"}' % ("0" * 64)))
     con.commit()
     con.close()
 
@@ -508,7 +524,8 @@ def _seed_typed(path, counts):
 
 def _seed_joint(root, *, eps_fracs=(3.90, 3.87, 3.85), kap_q=(0.0144, 0.0144, 0.0144),
                 ckap_bloat=(56000, 56000, 56000), bnd_code=(128, 128, 128),
-                bnd_bound=(83, 83, 83), esys_honesty=(140, 140, 140),
+                bnd_bound=(83, 83, 83), esys_honesty=(140, 140, 140, 140),
+                esys_typed=(7000, 7151, 7300, 7450),
                 claim_counts=(10, 10, 10), typed_counts=(3259, 3259, 3259)):
     """Seed a hermetic 7-DB joint world and return the `trend()` kwargs for it."""
     d = tempfile.mkdtemp(prefix="joint-", dir=root)
@@ -517,7 +534,7 @@ def _seed_joint(root, *, eps_fracs=(3.90, 3.87, 3.85), kap_q=(0.0144, 0.0144, 0.
     _seed_kappa(p("kappa.sqlite"), kap_q)
     _seed_ckappa(p("ckappa.sqlite"), ckap_bloat)
     _seed_bnd(p("bnd.sqlite"), bnd_code, bnd_bound)
-    _seed_esys(p("esys.sqlite"), esys_honesty)
+    _seed_esys(p("esys.sqlite"), esys_honesty, esys_typed)
     _seed_claims(p("claims.sqlite"), claim_counts)
     _seed_typed(p("typed.sqlite"), typed_counts)
     return {"eps_db": p("eps.sqlite"), "kap_db": p("kappa.sqlite"),
@@ -621,6 +638,14 @@ def _selftest():
     check("per-series-abstain", v == "compress-coherent" and sp == ["epsilon_system"]
           and un == [{"verdict": "sovereignty-paradox", "sparse": ["epsilon_system"]}],
           "ε_system sparse → contradiction listed unevaluable, never 'healthy'")
+    drift_face = _mk("source-incomparable")
+    drift_face["source_status"] = "source-incomparable"
+    v, _, sp, un = _resolve(_fresh_faces(epsilon_code=_mk("improving"),
+                                         epsilon_system=drift_face))
+    check("source-drift-unevaluable", v == "compress-coherent"
+          and sp == ["epsilon_system"]
+          and any(u["verdict"] == "sovereignty-paradox" for u in un),
+          "A8 corpus drift prevents the joint from treating ε_system as healthy")
     v, d, sp, un = _resolve(_fresh_faces(kappa=_mk("stable", 1)))
     check("headline-abstain", v == "abstain" and d.get("sparse") == ["kappa"],
           "κ unreadable → abstain (no headline)")
@@ -632,10 +657,10 @@ def _selftest():
     w = _seed_joint(tmp)
     check("e2e-coherent", trend(**w)["joint_verdict"] == "compress-coherent",
           "healthy control (7 real readers on synthetic series)")
-    w = _seed_joint(tmp, esys_honesty=(104, 90, 78))
+    w = _seed_joint(tmp, esys_honesty=(140, 146, 148, 149))
     out = trend(**w)
     check("e2e-sovereignty-paradox", out["joint_verdict"] == "sovereignty-paradox",
-          "ε_code↑ + ε_system honesty falling → sovereignty-paradox")
+          "ε_code↑ + ε_system interval rate falling → sovereignty-paradox")
     check("e2e-paradox-context", out["detail"].get("boundary_context", {}).get("verdict")
           == "boundary-stable", "the edge face rides along as context")
     w = _seed_joint(tmp, typed_counts=(3259, 3100, 2900))
@@ -656,7 +681,8 @@ def _selftest():
     w = _seed_joint(tmp, eps_fracs=(3.85,))
     out = trend(**w)
     check("e2e-abstain", out["joint_verdict"] == "abstain"
-          and out["sparse"] == ["epsilon_code"], "a one-sample face → abstain, no guessing")
+          and out["sparse"] == ["epsilon_code"],
+          "one-sample compressible face → abstain, no guessing")
     w = _seed_joint(tmp, esys_honesty=(140,))
     out = trend(**w)
     check("e2e-unevaluable", out["joint_verdict"] == "compress-coherent"
@@ -679,6 +705,12 @@ def _selftest():
         rc = _check({"joint_verdict": a, "detail": {"legs": {"kappa": "stable"}}}, stream=buf)
         alarmed &= (rc == 1 and buf.getvalue().startswith("ALARM:"))
     check("check-alarm-rc1", alarmed, "every alarm verdict → ALARM line + rc 1")
+    buf = io.StringIO()
+    drift_rc = _check({"joint_verdict": "stable",
+                       "source_statuses": {"epsilon_system": "source-incomparable"}},
+                      stream=buf)
+    check("check-drift-rc1", drift_rc == 1 and buf.getvalue().startswith("DRIFT:"),
+          "unverified ε_system → DRIFT report + rc 1 for watchdog delivery")
 
     # 6. live read (asserting only that it runs end-to-end; the live shape is whatever
     #    it is — the point is the seven readers resolve against the production series)

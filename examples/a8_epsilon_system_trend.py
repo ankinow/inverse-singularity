@@ -23,49 +23,52 @@ about ("ε = 0 ⇒ never sovereign to begin with"), and today *no instrument ten
 thread says must be *protected* (ε_system > 0 is the signature, not a defect), is
 only ever read at a point.
 
-This instrument closes that gap by the same discipline the ε-thread already used
-for its other two faces (import a single source, append-only SQLite, `--trend`
-reader with monotone-rise/past-healthiest verdicts, `--check` report-only watchdog):
+This instrument measures the gap with the same single-source and append-only
+discipline as the other ε readers, while treating every full-diary read as a
+cumulative snapshot rather than pretending its absolute count is a time interval:
 
   * it does **not** re-implement the measurement — it imports `parse_dir`,
     `compute`, `verdict` from `a6_epsilon_probe` (single source of truth), so the
     trend and the point-in-time probe cannot drift apart;
   * each run appends one row {seq, ts, typed, untyped_ambiguous, mislabels,
-    honesty, eps_code, eps_system, probe_verdict} to
+    honesty, eps_code, eps_system, probe_verdict, source_manifest} to
     `data/a8_epsilon_system_trend.sqlite` (append-only, `seq INTEGER PRIMARY KEY
-    AUTOINCREMENT` — the v0.8.9 write-safety shape);
-  * `--trend` (`schema a8-epsilon-system-trend/v1`) reads the *sovereignty term's
-    movement* and reports **`sovereignty-eroding`** only on a genuine monotone fall
-    of the honesty count (the raw ε_system numerator) past its healthiest (highest)
-    point — the SS7 under-report going to scale; and **`sovereignty-rising`** (the
-    healthy direction) only on a monotone rise past the healthiest point; it
-    abstains on <2 samples. A healthy runtime is **`sovereignty-stable`**.
-  * `--check` — report-only watch: **silent** (exit 0) on a healthy trend
-    (`sovereignty-stable` / `sovereignty-rising` / `abstain`), and prints a compact
-    `ALARM:` line + the JSON and exits 1 on the erosion verdict. The exit code is a
-    *reporting* mechanism (cron delivery surfaces the movement), never a gate —
-    nothing edits, prunes, or prescribes.
+    AUTOINCREMENT` — the v0.8.9 write-safety shape); the manifest hashes only
+    closed dated files and detects their removal or rewrite on later samples;
+  * `--trend` (`schema a8-epsilon-system-trend/v2`) computes honesty/action rates
+    from adjacent cumulative deltas. It requires three comparable intervals;
+    source mutation or negative cumulative deltas yield `source-incomparable`,
+    never an erosion verdict. Legacy rows without manifests establish a baseline
+    and abstain until enough verified intervals exist;
+  * `--check` — report-only watch: **silent** (exit 0) on `abstain`/stable/rising,
+    emits `DRIFT:` + JSON with reportable exit 1 for incomparable evidence, and emits
+    `ALARM:` + JSON with exit 1 only for a monotone decline in verified interval rates.
+    The marker distinguishes drift from erosion; the outer watchdog delivers either
+    report as cron-success. Neither path edits, prunes, or prescribes.
 
 The Goodhart safeguard is structural and identical to its siblings: the instrument
 samples and appends only. ε_system > 0 is preferred (A4: the could-have-done-
 otherwise residue), but the instrument *reads its movement*, never coaxes an agent
-into emitting marks — a mark emitted to satisfy a metric would itself be a mirrored
-constraint (Boundary Paradox), so the only honest consumer is the alarm, never the
+into emitting marks — a mark emitted to satisfy this metric would itself be a mirrored
+constraint (Boundary Paradox), so the only honest consumer is a report, never the
 feedback loop.
 
 Modes:
   * `--trend`       (explicit) — print the full JSON trend read, exit 0 always.
-  * `--check`       — report-only watch: silent (exit 0) on healthy; ALARM+exit 1
-    on `sovereignty-eroding`.
+  * `--check`       — report-only watch: ALARM+exit 1 on `sovereignty-eroding`;
+    `DRIFT:` + reportable exit 1 on incomparable source evidence; the outer
+    `watchdog_surface` delivers the report as cron-success (rc 0).
   * `--selftest`    — prove the fire/abstain logic; exits non-zero on failure.
   * `--help`        — print usage and exit 0; an unrecognized flag exits 2 — neither
     ever falls through to the default (append) path (v0.8.38 arg hygiene).
-  * (default)       — sample-and-append once (idempotent read-only; cron weekly).
+  * (default)       — sample-and-append once; only this mode writes the series.
 """
 
+import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -80,21 +83,19 @@ import a6_epsilon_probe as probe  # noqa: E402  (single source of truth)
 
 DIARY = os.environ.get("HERMES_DIARY", probe.DIARY)
 TREND_DB = str(Path(__file__).resolve().parent.parent / "data" / "a8_epsilon_system_trend.sqlite")
-SCHEMA = "a8-epsilon-system-trend/v1"
+SCHEMA = "a8-epsilon-system-trend/v2"
 
-# The trend verdicts that a report-only watchdog should surface. `sovereignty-stable`
-# and `sovereignty-rising` are healthy reads (rising is the *good* direction — more
-# honest residue recorded). `abstain` is honest under-sampling. The single verdict
-# below means a real erosion of the sovereignty term (honesty marks falling across
-# sessions — the SS7 under-report going to scale, ε_system → 0).
-# This is a *reporting* classification, never a gate: nothing acts on it.
+# The trend verdicts that a report-only watchdog should surface. Erosion means a
+# monotone decline in verified interval honesty/action rates, not a fall in a
+# cumulative corpus count. Source drift is reported separately and never gated.
 ALARM_VERDICTS = ("sovereignty-eroding",)
+DRIFT_VERDICTS = ("source-incomparable",)
 
 USAGE = (
     "usage: a8_epsilon_system_trend.py [--trend | --check | --selftest | --help]\n"
     "  (default) sample the live ε_system (honesty residue) once and append a row\n"
-    "  --trend   read the append-only series and print the movement verdict (JSON)\n"
-    "  --check   report-only watchdog: silent on healthy, ALARM + exit 1 otherwise\n"
+    "  --trend   read append-only interval rates and print the verdict (JSON)\n"
+    "  --check   report-only watchdog: ALARM/DRIFT payload + reportable exit 1\n"
     "  --selftest prove the fire/abstain/append logic; exits non-zero on failure\n"
 )
 
@@ -169,7 +170,7 @@ def _arg_hygiene_check(tmp):
                            and rows_bad is None),
         "read-fresh-abstain": (proc_read.returncode == 0
                                and '"abstain"' in proc_read.stdout
-                               and rows_read == 0),
+                               and rows_read is None),
     }
     shutil.rmtree(root, ignore_errors=True)
     return out
@@ -195,8 +196,28 @@ def init_db(path=TREND_DB):
                probe_verdict TEXT NOT NULL
            )"""
     )
+    columns = {row[1] for row in cur.execute("PRAGMA table_info(samples)")}
+    if "source_manifest" not in columns:
+        cur.execute("ALTER TABLE samples ADD COLUMN source_manifest TEXT")
     con.commit()
     con.close()
+
+
+def _stable_file_manifest(diary, sample_day):
+    """Hash closed, date-named diary files older than this sample's UTC day.
+
+    The current day's file is intentionally excluded because it is still being
+    appended. New dated files are allowed; mutation/removal of previously sampled
+    closed files invalidates that interval instead of masquerading as behavior.
+    """
+    manifest = {}
+    for name in sorted(os.listdir(diary)):
+        match = re.fullmatch(r"(\d{4}-\d{2}-\d{2})\.md", name)
+        if not match or match.group(1) >= sample_day:
+            continue
+        with open(os.path.join(diary, name), "rb") as fh:
+            manifest[match.group(1)] = hashlib.sha256(fh.read()).hexdigest()
+    return manifest
 
 
 def sample_once(diary=DIARY, out_db=TREND_DB, now=None):
@@ -204,9 +225,10 @@ def sample_once(diary=DIARY, out_db=TREND_DB, now=None):
     tally = probe.parse_dir(diary)
     eps_code, eps_system = probe.compute(tally)
     v = probe.verdict(eps_code, eps_system)
+    sample_ts = now or _now_iso()
     row = {
         "seq": None,
-        "ts": now or _now_iso(),
+        "ts": sample_ts,
         "typed": tally["typed_mutation"] + tally["typed_observe"],
         "untyped_ambiguous": tally["untyped_ambiguous"],
         "mislabels": tally["mislabels"],
@@ -214,16 +236,23 @@ def sample_once(diary=DIARY, out_db=TREND_DB, now=None):
         "eps_code": round(eps_code, 6),
         "eps_system": round(eps_system, 6),
         "probe_verdict": v,
+        "source_manifest": json.dumps(
+            _stable_file_manifest(diary, sample_ts[:10]),
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
     }
     init_db(out_db)
     con = sqlite3.connect(out_db)
     cur = con.cursor()
     cur.execute(
         "INSERT INTO samples (ts, typed, untyped_ambiguous, mislabels, honesty, "
-        "eps_code, eps_system, probe_verdict) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "eps_code, eps_system, probe_verdict, source_manifest) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             row["ts"], row["typed"], row["untyped_ambiguous"], row["mislabels"],
             row["honesty"], row["eps_code"], row["eps_system"], v,
+            row["source_manifest"],
         ),
     )
     row["seq"] = cur.lastrowid
@@ -233,12 +262,22 @@ def sample_once(diary=DIARY, out_db=TREND_DB, now=None):
 
 
 def _load_series(out_db=TREND_DB):
-    init_db(out_db)  # a first-ever read on a fresh series is an abstain, not a crash
+    # A trend read must not create or migrate the live series database.
+    if not os.path.exists(out_db):
+        return []
     con = sqlite3.connect(f"file:{out_db}?mode=ro", uri=True)
     cur = con.cursor()
+    tables = {row[0] for row in cur.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'")}
+    if "samples" not in tables:
+        con.close()
+        return []
+    columns = {row[1] for row in cur.execute("PRAGMA table_info(samples)")}
+    manifest_column = "source_manifest" if "source_manifest" in columns else "NULL"
     cur.execute(
         "SELECT seq, ts, typed, untyped_ambiguous, mislabels, honesty, "
-        "eps_code, eps_system, probe_verdict FROM samples ORDER BY seq ASC"
+        f"eps_code, eps_system, probe_verdict, {manifest_column} AS source_manifest "
+        "FROM samples ORDER BY seq ASC"
     )
     rows = [dict(zip([c[0] for c in cur.description], r)) for r in cur.fetchall()]
     con.close()
@@ -262,37 +301,107 @@ def trend(out_db=TREND_DB):
             "samples": n,
             "verdict": "abstain",
             "reason": "fewer than 2 samples",
+            "source_status": "baseline-required",
             "last_honesty": rows[-1]["honesty"] if rows else None,
             "last_eps_system": rows[-1]["eps_system"] if rows else None,
         }
 
-    # The *honesty count* is the movement signal (the raw ε_system numerator),
-    # not the fraction: ε_system = honesty / typed, so the fraction falls whenever
-    # the agent types more actions (the denominator grows) even if it records the
-    # SAME residue. A verdict keyed on the fraction would fabricate "sovereignty
-    # eroding" for a pure typing-volume increase (more observed work, equal honesty)
-    # — the same compressible mis-read the κ-thread caught when its own reader
-    # mixed κ definitions and the boundary-trend caught when it switched from
-    # fractions to counts. The count measures "did the system stop recording its
-    # could-have-done-otherwise residue"; the fraction is reported for reference.
-    honesty = [r["honesty"] for r in rows]
+    # Samples scan the whole cumulative diary. Absolute totals therefore cannot
+    # represent behavior over time: their differences are the interval signal,
+    # and closed-file manifests prove that earlier evidence was not rewritten.
+    rates = []
+    source_status = "baseline-required"
+    source_changes = []
+    for previous, current in zip(rows, rows[1:]):
+        delta_typed = current["typed"] - previous["typed"]
+        delta_honesty = current["honesty"] - previous["honesty"]
+        old_raw = previous.get("source_manifest")
+        new_raw = current.get("source_manifest")
+        if not old_raw or not new_raw:
+            rates = []
+            if delta_typed < 0 or delta_honesty < 0:
+                source_status = "source-incomparable"
+                source_changes = [{"from_seq": previous["seq"],
+                                   "to_seq": current["seq"],
+                                   "change": "legacy-cumulative-count-decreased"}]
+            else:
+                source_status = "baseline-required"
+                source_changes = []
+            continue
+        try:
+            old_manifest = json.loads(old_raw)
+            new_manifest = json.loads(new_raw)
+        except (TypeError, json.JSONDecodeError):
+            rates = []
+            source_status = "source-incomparable"
+            source_changes = [{"reason": "invalid manifest"}]
+            continue
+        valid_old = isinstance(old_manifest, dict) and all(
+            isinstance(day, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", day)
+            and isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest)
+            for day, digest in old_manifest.items()
+        )
+        valid_new = isinstance(new_manifest, dict) and all(
+            isinstance(day, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", day)
+            and isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest)
+            for day, digest in new_manifest.items()
+        )
+        if not valid_old or not valid_new:
+            rates = []
+            source_status = "source-incomparable"
+            source_changes = [{"reason": "invalid manifest shape"}]
+            continue
 
-    # ε_system FALLING past its healthiest (highest) point = honesty residue
-    # shrinking across sessions — the SS7 under-report going to scale (ε → 0).
+        removed = sorted(set(old_manifest) - set(new_manifest))
+        modified = sorted(
+            day for day in set(old_manifest) & set(new_manifest)
+            if old_manifest[day] != new_manifest[day]
+        )
+        if removed or modified:
+            rates = []
+            source_status = "source-incomparable"
+            source_changes = ([{"date": day, "change": "removed"} for day in removed]
+                              + [{"date": day, "change": "modified"} for day in modified])
+            continue
+
+        if delta_typed < 0 or delta_honesty < 0 or (delta_typed == 0 and delta_honesty > 0):
+            rates = []
+            source_status = "source-incomparable"
+            source_changes = [{"from_seq": previous["seq"], "to_seq": current["seq"],
+                               "change": "cumulative-count-decreased-or-rebased"}]
+            continue
+        if delta_typed == 0:
+            source_status = "no-new-actions"
+            continue
+
+        rates.append({
+            "from_seq": previous["seq"],
+            "to_seq": current["seq"],
+            "delta_typed": delta_typed,
+            "delta_honesty": delta_honesty,
+            "rate": delta_honesty / delta_typed,
+        })
+        source_status = "verified"
+        source_changes = []
+
+    rate_values = [item["rate"] for item in rates]
+    if source_status == "source-incomparable":
+        verdict = "source-incomparable"
+    elif source_status in ("baseline-required", "no-new-actions") or len(rate_values) < 3:
+        verdict = "abstain"
+    else:
+        eroding = _monotone_fall(rate_values) and rate_values[-1] < max(rate_values)
+        rising = _monotone_rise(rate_values) and rate_values[-1] > min(rate_values)
+        if eroding:
+            verdict = "sovereignty-eroding"
+        elif rising:
+            verdict = "sovereignty-rising"
+        else:
+            verdict = "sovereignty-stable"
+
+    honesty = [r["honesty"] for r in rows]
     honesty_hi = max(honesty)
     honesty_last = honesty[-1]
-    eroding = _monotone_fall(honesty) and (honesty_last < honesty_hi)
-
-    # ε_system RISING past its healthiest point = more honest residue recorded
-    # (the healthy direction — the could-have-done-otherwise signal strengthening).
-    rising = _monotone_rise(honesty) and (honesty_last > min(honesty))
-
-    if eroding:
-        verdict = "sovereignty-eroding"
-    elif rising:
-        verdict = "sovereignty-rising"
-    else:
-        verdict = "sovereignty-stable"
 
     eps_sys = [r["eps_system"] for r in rows]
     eps_code = [r["eps_code"] for r in rows]
@@ -300,6 +409,10 @@ def trend(out_db=TREND_DB):
         "schema": SCHEMA,
         "samples": n,
         "verdict": verdict,
+        "source_status": source_status,
+        "comparable_intervals": len(rates),
+        "interval_rates": rates[-12:],
+        "source_changes": source_changes[:20],
         "first_honesty": honesty[0],
         "last_honesty": honesty_last,
         "min_honesty": min(honesty),
@@ -330,6 +443,16 @@ def _selftest():
 
     tmp = tempfile.mkdtemp(prefix="a8est-selftest-")
 
+    # Closed dated files are fingerprinted; the current day's mutable file is not.
+    manifest_dir = os.path.join(tmp, "manifest-diary")
+    os.makedirs(manifest_dir)
+    Path(manifest_dir, "2026-09-28.md").write_bytes(b"closed evidence\n")
+    Path(manifest_dir, "2026-09-29.md").write_bytes(b"still changing\n")
+    manifest = _stable_file_manifest(manifest_dir, "2026-09-29")
+    check("manifest-closed-only",
+          manifest == {"2026-09-28": hashlib.sha256(b"closed evidence\n").hexdigest()},
+          "closed-file SHA-256 captured; current day excluded")
+
     # 2. append-does-not-replace: two samples → seq 1,2 monotonic, order preserved
     tdb = os.path.join(tmp, "trend.sqlite")
     r1 = sample_once(diary="/mnt/hermes/diary", out_db=tdb)
@@ -345,10 +468,10 @@ def _selftest():
     check("counts-captured", r1["honesty"] >= 0 and r1["typed"] >= 0,
           "honesty/typed counts captured")
 
-    # 4. trend verdicts on synthetic series (honesty counts only — not fractions)
+    # 4. trend verdicts use per-interval honesty/action rates and source continuity.
     _cnt = {"n": 0}
 
-    def verdict_of(honesty_counts):
+    def verdict_of(points, manifests=None):
         _cnt["n"] += 1
         syn_db = os.path.join(tmp, f"syn{_cnt['n']}.sqlite")
         con = sqlite3.connect(syn_db)
@@ -356,30 +479,51 @@ def _selftest():
         cur.execute(
             "CREATE TABLE samples (seq INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, "
             "typed INTEGER, untyped_ambiguous INTEGER, mislabels INTEGER, "
-            "honesty INTEGER, eps_code REAL, eps_system REAL, probe_verdict TEXT)"
+            "honesty INTEGER, eps_code REAL, eps_system REAL, probe_verdict TEXT, "
+            "source_manifest TEXT)"
         )
-        for i, h in enumerate(honesty_counts):
+        for i, (typed, h) in enumerate(points):
+            manifest = (manifests[i] if manifests is not None
+                        else {"2026-01-01": hashlib.sha256(b"stable").hexdigest()})
             cur.execute(
                 "INSERT INTO samples (ts,typed,untyped_ambiguous,mislabels,honesty,"
-                "eps_code,eps_system,probe_verdict) VALUES (?,?,?,?,?,?,?,?)",
-                (f"t{i}", 5000, 6000, 30, h, 1.32, h / 5000.0, "SOVEREIGN"),
+                "eps_code,eps_system,probe_verdict,source_manifest) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (f"2026-01-0{i + 1}T00:00:00+00:00", typed, 6000, 30, h,
+                 1.32, h / max(typed, 1), "SOVEREIGN",
+                 json.dumps(manifest, sort_keys=True) if manifest is not None else None),
             )
         con.commit()
         con.close()
         return trend(syn_db)["verdict"]
 
-    # healthy: honesty flat → sovereignty-stable
+    # Flat interval rate → stable even though cumulative counts rise.
     check("stable",
-          verdict_of([104, 104, 104]) == "sovereignty-stable",
-          "honesty count flat → stable")
-    # honesty rising → sovereignty-rising (healthy direction, not an alarm)
+          verdict_of([(1000, 10), (1200, 10), (1400, 10), (1600, 10)])
+          == "sovereignty-stable",
+          "flat per-interval honesty rate → stable")
+    # Per-interval honesty rate rising → sovereignty-rising.
     check("rising",
-          verdict_of([104, 120, 138]) == "sovereignty-rising",
-          "honesty count monotone rise → sovereignty strengthening")
-    # honesty falling → sovereignty-eroding (the SS7 under-report going to scale)
+          verdict_of([(1000, 0), (1200, 1), (1400, 3), (1600, 6)])
+          == "sovereignty-rising",
+          "monotone interval-rate rise → sovereignty strengthening")
+    # Per-interval honesty rate falling → sovereignty-eroding.
     check("eroding",
-          verdict_of([104, 90, 78]) == "sovereignty-eroding",
-          "honesty count monotone fall → ε_system collapsing toward 0")
+          verdict_of([(1000, 0), (1200, 6), (1400, 8), (1600, 9)])
+          == "sovereignty-eroding",
+          "monotone interval-rate fall → ε_system emission declining")
+
+    # A rewrite of a closed source file invalidates the interval, not the agent.
+    check("source-change",
+          verdict_of([(1000, 10), (1200, 8)],
+                     [{"2026-01-01": hashlib.sha256(b"before").hexdigest()},
+                      {"2026-01-01": hashlib.sha256(b"after").hexdigest()}])
+          == "source-incomparable",
+          "modified closed file → report-only source drift")
+    check("legacy-decrease",
+          verdict_of([(1000, 10), (1200, 8)], [None, None])
+          == "source-incomparable",
+          "legacy negative cumulative delta is not behavioral erosion")
 
     # 5. abstain on <2 samples
     solo = os.path.join(tmp, "solo.sqlite")
@@ -399,12 +543,14 @@ def _selftest():
     con.close()
     check("abstain", trend(solo)["verdict"] == "abstain", "<2 samples → abstain")
 
-    # 6. the ALARM classification (the --check report contract): only
-    #    `sovereignty-eroding` is surface-worthy; healthy/rising/abstain are silent.
+    # 6. ALARM vs source DRIFT stay distinct and report-only.
     alarm = {"sovereignty-eroding"}
+    drift = {"source-incomparable"}
     healthy = {"sovereignty-stable", "sovereignty-rising", "abstain"}
     check("alarm-verdicts", set(ALARM_VERDICTS) == alarm,
-          "exactly the erosion verdict is report-worthy")
+          "only evidence-backed erosion exits as ALARM")
+    check("drift-verdicts", set(DRIFT_VERDICTS) == drift,
+          "source drift is a separate report-only verdict")
     check("healthy-silent", alarm.isdisjoint(healthy),
           "no healthy/rising/abstain verdict is ever surfaced")
 
@@ -428,10 +574,8 @@ def main():
         print("SELFTEST:", "PASS" if ok else "FAIL")
         sys.exit(0 if ok else 1)
 
-    # Default (no flag) samples-and-appends first — this both measures the live
-    # ε_system and guarantees the DB exists before any read. `--check`/`--trend`
-    # read the existing series (a first-ever `--check` with no prior sample is an
-    # abstain, not a crash — init_db ensures the table exists even on a bare read).
+    # Default (no flag) samples-and-appends first. `--check`/`--trend` only read
+    # the existing series; a missing/empty database is a clean abstain.
     if "--check" not in sys.argv and "--trend" not in sys.argv:
         row = sample_once()
         print(json.dumps({
@@ -456,6 +600,10 @@ def main():
             print("ALARM: %s (honesty %s→%s, ε_system %s→%s)"
                   % (verdict, out["first_honesty"], out["last_honesty"],
                      out["first_eps_system"], out["last_eps_system"]))
+            print(json.dumps(out, indent=2))
+            sys.exit(1)
+        if verdict in DRIFT_VERDICTS:
+            print("DRIFT: cumulative diary source changed; ε_system trend is incomparable")
             print(json.dumps(out, indent=2))
             sys.exit(1)
         # Healthy (sovereignty-stable / sovereignty-rising) or abstain: silent.
