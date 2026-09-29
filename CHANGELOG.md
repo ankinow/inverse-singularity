@@ -10,6 +10,8 @@
 
 A8 v2 trends interval honesty/action deltas between comparable cumulative snapshots, hashes closed dated diary files with SHA-256, and classifies changed or legacy-incomparable evidence as `DRIFT`, never erosion. `ALARM` requires at least three comparable monotone-declining intervals. The joint reader carries A8 source status and treats unverified evidence as unevaluable. Both report markers use the watchdog's reportable rc 1 contract; the wrapper delivers the marker, ledgers it, and returns cron-success. A8 and joint synthetic selftests pass; isolated live wrapper verification delivered `DRIFT` to a temporary ledger.
 
+A5 provenance now refuses to infer metric-chasing from an anchorless numeric value: it returns `UNVERIFIED` unless an explicit `metric_threshold_evidence` record exists. This preserves `MIRRORED` for values with actual drift/threshold evidence and keeps the live five anchored knobs unchanged. Regression tests pin both the unverified and explicit-evidence cases.
+
 ---
 
 ## v0.8.44 — 2026-09-15 — the κ metric's own definition gets recorded: a root-scope audit + `roots_sha` pinned in every sample (`kappa_surface_audit.py`, `kappa_proliferation_timeseries.py`)

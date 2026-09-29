@@ -23,27 +23,27 @@ Classification — per bounded knob in the live Hermes config:
   CHOSEN   (A1-legitimate, φ(d, s=chosen)) — the constraint's value is anchored
            to a measured real phenomenon (a measured decay point, half-life,
            observed violation, doctrine invariant). It negates something real.
-  MIRRORED (metric-prescriptive)            — the constraint's value floats to
-           satisfy a measured threshold/metric (a "good-looking" number, a
-           dashboard target, a protocol ceiling) with no real-negation anchor;
-           it exists because a metric changed, not because reality demanded it.
-  UNVERIFIED — no anchor present nor a metric-threshold marker legible; the
-           instrument honestly refuses to guess.
+  MIRRORED (metric-prescriptive candidate)   — the value demonstrably drifts off
+           a real/doctrine anchor, or explicit provenance identifies it as a
+           metric/protocol threshold with no independent real-world anchor.
+  UNVERIFIED — no anchor and no explicit threshold provenance; the instrument
+           cannot infer metric-chasing from a numeric value alone and refuses
+           to guess.
 
 Anchors come from the A3 empirical series (CURIOSITY.md) and the safety
 protocol — i.e. *real measurements already in the repo*, not invented here.
 The reader-facing behavior: this is a read-only diagnostic. It NEVER mutates
 config. It reports which bounded knobs sit on a real anchor (chosen) vs which
-have drifted off / sit on a bare threshold (mirrored candidate, for an
-operator's second look).
+have drifted off that anchor or have explicit metric-threshold provenance
+(mirrored candidate, for an operator's second look).
 
 Zero deps. Stdlib only. Reads /mnt/hermes/config.yaml (HERMES_CONFIG override).
 
 Verdicts:
-  - CHOSEN    : value within anchor tolerance of the measured real phenomenon.
-  - MIRRORED  : value has no anchor, or drifts far from it, and reads like a
-                bare protocol/metric ceiling.
-  - UNVERIFIED: neither legible.
+  - CHOSEN    : value within anchor tolerance of the real anchor.
+  - MIRRORED  : value drifts far from its anchor, or has explicit
+                `metric_threshold_evidence` provenance and no real anchor.
+  - UNVERIFIED: no anchor/evidence is present, including an unanchored number.
   exit 0 = self-check PASS, 1 = self-check FAIL.
 """
 
@@ -166,15 +166,13 @@ def classify(scalar: str, anchor_spec: dict) -> str:
 
     CHOSEN   : scalar parses to a number within ANCHOR_TOL_FACTOR of the real
                anchor, OR scalar matches an exact doctrine string anchor.
-    MIRRORED : scalar parses to a number that is far ABOVE the anchor
-               (a bare far-ceiling — exactly the "value that exists to satisfy
-               a threshold, not a real negation") or below-1/tol the anchor; or
-               it is a bare numeric with no anchor at all present.
-    UNVERIFIED: nothing legible.
+    MIRRORED : scalar drifts outside the real anchor tolerance, or an
+               anchorless scalar has explicit non-empty
+               `metric_threshold_evidence` provenance.
+    UNVERIFIED: no anchor and no explicit threshold provenance. A number's
+                type/size alone cannot establish why it was chosen.
     """
     anchor_val = anchor_spec.get("anchor")
-    kind = anchor_spec.get("kind", "real")
-    note = anchor_spec.get("note", "")
 
     # doctrine string anchors match exactly
     if isinstance(anchor_val, str):
@@ -186,7 +184,8 @@ def classify(scalar: str, anchor_spec: dict) -> str:
     if f is None:
         return "UNVERIFIED"
     if anchor_val is None:
-        return "MIRRORED"  # numeric but no anchor → bare threshold
+        evidence = anchor_spec.get("metric_threshold_evidence")
+        return "MIRRORED" if isinstance(evidence, str) and evidence.strip() else "UNVERIFIED"
 
     lo = anchor_val / ANCHOR_TOL_FACTOR
     hi = anchor_val * ANCHOR_TOL_FACTOR
@@ -231,9 +230,8 @@ def report(values: dict) -> str:
         lines.append(f"UNVERIFIED ({len(unverified)}): {', '.join(unverified)}")
     lines.append("")
     lines.append("NOTE: a MIRRORED flag is a second look, not an action. This "
-                 "instrument never mutates config — it reports whether each "
-                 "bounded knob sits on a real anchor (chosen) or has drifted "
-                 "onto a bare threshold (mirrored).")
+                 "instrument never mutates config — anchorless numbers remain "
+                 "UNVERIFIED unless explicit metric-threshold provenance exists.")
     return "\n".join(lines)
 
 
@@ -272,8 +270,12 @@ def selftest() -> int:
              "999 (far ceiling, v0.7.6 proved 51× worse) must be MIRRORED")
     sc.check(classify("120", far_ceiling) == "MIRRORED",
              "120 (> 1.25× anchor, no real phenomenon near it) must be MIRRORED")
-    sc.check(classify("500", {"anchor": None, "kind": "real", "note": ""}) == "MIRRORED",
-             "numeric with no anchor must be MIRRORED (bare threshold)")
+    sc.check(classify("500", {"anchor": None, "kind": "real", "note": ""}) == "UNVERIFIED",
+             "anchorless numeric alone must be UNVERIFIED (never infer metric-chasing)")
+    sc.check(classify("500", {"anchor": None, "kind": "metric",
+                              "metric_threshold_evidence": "config schema calls this a tier ceiling"})
+             == "MIRRORED",
+             "anchorless numeric with explicit threshold provenance must be MIRRORED")
     sc.check(classify("abc", real) == "UNVERIFIED",
              "non-numeric with real anchor must be UNVERIFIED")
     doctr = {"anchor": "off", "kind": "doctrine", "note": ""}
@@ -312,7 +314,7 @@ def selftest() -> int:
 
     print("  selftest[chosen   ] 66→CHOSEN, 60→CHOSEN, 84→MIRRORED (1.27× > 1.25×), 999→MIRRORED, 120→MIRRORED")
     print("  selftest[doctrine ] 'off'→CHOSEN, 'on'→MIRRORED")
-    print("  selftest[unverifd ] 'abc'→UNVERIFIED, no-anchor numeric→MIRRORED")
+    print(f"  selftest[unverifd ] 'abc' + unanchored number→UNVERIFIED; explicit threshold evidence→MIRRORED")
     print("  selftest[parser   ] nested-map scalar recovery (parent indent)")
     print(f"SELFTEST: {'PASS' if sc.ok else 'FAIL'}")
     for m in sc._fails:
