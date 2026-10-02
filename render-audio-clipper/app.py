@@ -5,6 +5,7 @@ from typing import Literal
 
 import imageio_ffmpeg
 import yt_dlp
+import requests
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
