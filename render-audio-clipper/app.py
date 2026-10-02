@@ -173,29 +173,117 @@ async def clip(url:str=Query(...), start:float=Query(0,ge=0),
 TARGET_URL=os.getenv("TARGET_URL","").strip()
 TARGET_COMMENT_ID=os.getenv("TARGET_COMMENT_ID","").strip()
 
+
+def _match_comment_rows(rows, target_id):
+    base=target_id.split(".")[0] if target_id else ""
+    out=[]
+    for item in rows or []:
+        if not isinstance(item,dict):
+            continue
+        cid=str(item.get("commentId") or item.get("id") or "")
+        parent=str(item.get("parentId") or item.get("parent") or "")
+        if target_id and (cid==target_id or parent==target_id or cid.startswith(base) or parent.startswith(base)):
+            out.append(item)
+    return out
+
+def lookup_alt_comments(video_id, target_id):
+    ua={"User-Agent":"Mozilla/5.0"}
+    invidious=[
+      "https://inv.nadeko.net",
+      "https://invidious.nerdvpn.de",
+      "https://yt.chocolatemoo53.com",
+      "https://invidious.tiekoetter.com",
+    ]
+    piped=[
+      "https://pipedapi.kavin.rocks",
+      "https://pipedapi.leptons.xyz",
+      "https://pipedapi.nosebs.ru",
+    ]
+    errors=[]
+    for base in invidious:
+        try:
+            url=f"{base}/api/v1/comments/{video_id}"
+            cont=None
+            for page in range(12):
+                params={"sort_by":"top","source":"youtube"}
+                if cont: params["continuation"]=cont
+                r=requests.get(url,params=params,headers=ua,timeout=12)
+                r.raise_for_status()
+                data=r.json()
+                rows=data.get("comments") or []
+                hit=_match_comment_rows(rows,target_id)
+                if hit:
+                    extra=[]
+                    for h in hit:
+                        rep=(h.get("replies") or {}).get("continuation")
+                        if rep:
+                            rr=requests.get(url,params={"continuation":rep,"source":"youtube"},headers=ua,timeout=12)
+                            if rr.ok:
+                                extra.extend((rr.json() or {}).get("comments") or [])
+                    return {"source":base,"kind":"invidious","page":page,"matches":hit,
+                            "replies":_match_comment_rows(extra,target_id) or extra[:20]}
+                cont=data.get("continuation")
+                if not cont: break
+        except Exception as e:
+            errors.append(f"invidious {base}: {type(e).__name__}: {e}")
+    for base in piped:
+        try:
+            nextpage=None
+            for page in range(15):
+                if page==0:
+                    r=requests.get(f"{base}/comments/{video_id}",headers=ua,timeout=12)
+                else:
+                    r=requests.get(f"{base}/nextpage/comments/{video_id}",
+                                   params={"nextpage":nextpage},headers=ua,timeout=12)
+                r.raise_for_status()
+                data=r.json()
+                rows=data.get("comments") or []
+                hit=_match_comment_rows(rows,target_id)
+                if hit:
+                    return {"source":base,"kind":"piped","page":page,"matches":hit}
+                nextpage=data.get("nextpage")
+                if not nextpage: break
+        except Exception as e:
+            errors.append(f"piped {base}: {type(e).__name__}: {e}")
+    return {"source":None,"matches":[],"errors":errors[-10:]}
+
 async def _startup_target_lookup():
     if not TARGET_URL:
         return
     await asyncio.sleep(2)
+    video_id=""
+    try:
+        p=urlparse(TARGET_URL)
+        if p.hostname and p.hostname.endswith("youtu.be"):
+            video_id=p.path.strip("/").split("/")[0]
+        else:
+            from urllib.parse import parse_qs
+            video_id=(parse_qs(p.query).get("v") or [""])[0]
+    except Exception:
+        pass
     try:
         log.info("target lookup begin url=%s comment_id=%s", TARGET_URL, TARGET_COMMENT_ID or "-")
         info=await run_in_threadpool(extract, validate_url(TARGET_URL), True)
         rows=info.get("comments") or []
-        slim=[{"id":c.get("id"),"parent":c.get("parent"),"author":c.get("author"),
-               "text":c.get("text"),"timestamp":c.get("timestamp"),
-               "like_count":c.get("like_count")}
-              for c in rows if isinstance(c,dict)]
+        slim=[{"id":x.get("id"),"parent":x.get("parent"),"author":x.get("author"),
+               "text":x.get("text"),"timestamp":x.get("timestamp"),
+               "like_count":x.get("like_count")}
+              for x in rows if isinstance(x,dict)]
         matches=[]
         if TARGET_COMMENT_ID:
             base=TARGET_COMMENT_ID.split(".")[0]
-            matches=[c for c in slim if c.get("id")==TARGET_COMMENT_ID
-                     or c.get("parent")==TARGET_COMMENT_ID
-                     or str(c.get("id","")).startswith(base)
-                     or str(c.get("parent","")).startswith(base)]
-        log.info("TARGET_COMMENTS total=%s matches=%s", len(slim), matches[:20])
-    except Exception:
-        log.exception("target lookup failed")
-
-@app.on_event("startup")
+            matches=[x for x in slim if x.get("id")==TARGET_COMMENT_ID
+                     or x.get("parent")==TARGET_COMMENT_ID
+                     or str(x.get("id","")).startswith(base)
+                     or str(x.get("parent","")).startswith(base)]
+        log.info("TARGET_COMMENTS_YTDLP total=%s matches=%s", len(slim), matches[:20])
+        if matches:
+            return
+    except Exception as e:
+        log.warning("yt-dlp target lookup failed: %s", e)
+    if video_id:
+        alt=await run_in_threadpool(lookup_alt_comments, video_id, TARGET_COMMENT_ID)
+        log.info("TARGET_COMMENTS_ALT %s", alt)
+\n@app.on_event("startup")
 async def startup_target_lookup():
     asyncio.create_task(_startup_target_lookup())
