@@ -168,3 +168,34 @@ async def clip(url:str=Query(...), start:float=Query(0,ge=0),
     except Exception as e:
         if tmp: shutil.rmtree(tmp,ignore_errors=True)
         log.exception("clip failed"); raise HTTPException(502,str(e)[:1000])
+
+
+TARGET_URL=os.getenv("TARGET_URL","").strip()
+TARGET_COMMENT_ID=os.getenv("TARGET_COMMENT_ID","").strip()
+
+async def _startup_target_lookup():
+    if not TARGET_URL:
+        return
+    await asyncio.sleep(2)
+    try:
+        log.info("target lookup begin url=%s comment_id=%s", TARGET_URL, TARGET_COMMENT_ID or "-")
+        info=await run_in_threadpool(extract, validate_url(TARGET_URL), True)
+        rows=info.get("comments") or []
+        slim=[{"id":c.get("id"),"parent":c.get("parent"),"author":c.get("author"),
+               "text":c.get("text"),"timestamp":c.get("timestamp"),
+               "like_count":c.get("like_count")}
+              for c in rows if isinstance(c,dict)]
+        matches=[]
+        if TARGET_COMMENT_ID:
+            base=TARGET_COMMENT_ID.split(".")[0]
+            matches=[c for c in slim if c.get("id")==TARGET_COMMENT_ID
+                     or c.get("parent")==TARGET_COMMENT_ID
+                     or str(c.get("id","")).startswith(base)
+                     or str(c.get("parent","")).startswith(base)]
+        log.info("TARGET_COMMENTS total=%s matches=%s", len(slim), matches[:20])
+    except Exception:
+        log.exception("target lookup failed")
+
+@app.on_event("startup")
+async def startup_target_lookup():
+    asyncio.create_task(_startup_target_lookup())
