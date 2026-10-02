@@ -284,6 +284,7 @@ async def _startup_target_lookup():
     if video_id:
         alt=await run_in_threadpool(lookup_alt_comments, video_id, TARGET_COMMENT_ID)
         log.info("TARGET_COMMENTS_ALT %s", alt)
-\n@app.on_event("startup")
+
+@app.on_event("startup")
 async def startup_target_lookup():
     asyncio.create_task(_startup_target_lookup())
