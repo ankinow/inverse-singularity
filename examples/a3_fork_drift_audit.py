@@ -48,6 +48,13 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PRODUCER_PATH = os.path.join(HERE, "a3_quality_delta.py")
+# The measurement APPARATUS: the producer (whose rules define the baseline)
+# and this instrument (which does the measuring).  Neither is a CONSUMER of
+# the producer, so neither belongs in the audited corpus — see the
+# vacuous-measurement guard in check_report() (D41a).  Derived from
+# PRODUCER_PATH so the two cannot drift apart.
+_APPARATUS = {os.path.basename(PRODUCER_PATH),
+              os.path.basename(os.path.abspath(__file__))}
 SCRATCH = os.environ.get("TMPDIR", "/tmp")
 
 # --------------------------------------------------------------------------
@@ -901,10 +908,29 @@ def check_report(examples_dir: str = HERE) -> tuple:
         print(f"ERROR: audit crashed: {exc!r}", file=sys.stderr)
         return 2, []
 
-    if not rep.get("files_scanned"):
-        # The D28 lesson: an instrument measuring an EMPTY tree reports a
-        # perfect score.  Zero files is a broken measurement, not a clean one.
-        print("ERROR: 0 files scanned — measurement is vacuous", file=sys.stderr)
+    # The D28 lesson: an instrument measuring an EMPTY corpus reports a
+    # perfect score.  Zero audited consumers is a broken measurement, not a
+    # clean one.
+    #
+    # D41a: this guard was UNREACHABLE and the ε-code proved it.  It counted
+    # every `*.py` in the examples dir, and the producer
+    # (`a3_quality_delta.py`) is itself a `*.py` in that dir — so the guard
+    # above already returned rc2 for a missing producer, and with it present
+    # `files_scanned >= 1` always.  The branch could not execute, yet it was
+    # cited in the taxonomy as a real rc2 cause: a documented failure mode no
+    # input can produce.  Measured, not reasoned: a dir holding ONLY the
+    # instrument and the producer returns rc0, and no arrangement yields 0.
+    #
+    # The fix counts what the gate is actually ABOUT — the audited CONSUMERS
+    # — rather than every .py present.  The producer and the instrument are
+    # the measurement apparatus, not the corpus; scanning them was always an
+    # artefact of globbing a directory.  A tree with zero consumers is now the
+    # vacuous measurement it was always meant to catch, and the branch fires.
+    scanned = [f["file"] for f in rep["findings"]
+               if f["file"] not in _APPARATUS]
+    if not scanned:
+        print("ERROR: 0 audited consumers — measurement is vacuous",
+              file=sys.stderr)
         return 2, []
 
     payload = {
